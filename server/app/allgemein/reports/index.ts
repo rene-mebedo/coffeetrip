@@ -1,0 +1,1 @@
+import './adressen-by-kundenart';

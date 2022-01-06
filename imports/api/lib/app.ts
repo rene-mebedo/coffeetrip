@@ -1,7 +1,7 @@
 import { Meteor, Subscription } from "meteor/meteor";
 import { check } from "meteor/check";
 import { Mongo } from "meteor/mongo";
-import { MongoInternals, UpdateWriteOpResult } from 'meteor/mongo';
+import { MongoInternals, InsertOneWriteOpResult, UpdateWriteOpResult, WriteOpResult } from 'meteor/mongo';
 
 import { EnumMethodResult } from "../consts";
 import { IMethodStatus, IWorldUser } from "../types/world";
@@ -12,7 +12,7 @@ import { MethodInvocationFunction } from "./types";
 import { World } from "./world";
 import moment from 'moment'
 
-import { AppData, IActivitiesReplyToProps, IApp, IGenericAppLinkOptionsResult, IGenericDefaultResult, IGenericInsertArguments, IGenericInsertResult, IGenericUpdateArguments, IGenericUpdateResult, IGetAppLinkOptionProps, IGetUsersSharedWithResult, ILockResult, IPostProps, UpdateableAppData } from "/imports/api/types/app-types";
+import { AppData, IActivitiesReplyToProps, IApp, IGenericAppLinkOptionsResult, IGenericDefaultResult, IGenericInsertArguments, IGenericInsertResult, IGenericRemoveArguments, IGenericRemoveResult, IGenericUpdateArguments, IGenericUpdateResult, IGetAppLinkOptionProps, IGetUsersSharedWithResult, ILockResult, IPostProps, UpdateableAppData } from "/imports/api/types/app-types";
 import { injectUserData } from "./roles";
 import { Activities } from "./activities";
 import SimpleSchema from "simpl-schema";
@@ -235,9 +235,8 @@ export class App<T> {
                     return elements;
                 }
     
-                if (l.elements)
-                l.elements = validateLayoutElements(l.elements);
-    
+                if (l.elements) l.elements = validateLayoutElements(l.elements);
+
                 try {
                     AppLayoutSchema.validate(l);
                 } catch (err) {
@@ -314,6 +313,7 @@ export class App<T> {
             ['__app.' + this.appId + '.getUsersSharedWith']: this.getUsersSharedWith(),
             ['__app.' + this.appId + '.insertDocument']: this.insertDocument(),
             ['__app.' + this.appId + '.updateDocument']: this.updateDocument(),
+            ['__app.' + this.appId + '.removeDocument']: this.removeDocument(),
             ['__app.' + this.appId + '.activities.post']: this.post(),
             ['__app.' + this.appId + '.activities.replyTo']: this.activitiesReplyTo(),
             ['__app.' + this.appId + '.lock']: this.lockDocument(),
@@ -760,7 +760,7 @@ export class App<T> {
      * @returns IWorlduser
      */
     private getCurrentUser(): IWorldUser {
-        const userId: string | null = 'MXoojsYqDighicEhp'; //TEST TODO  Meteor.userId();
+        const userId: string | null = Meteor.userId();
         if (!userId) {
             throw new Meteor.Error('Not logged in.');
         }
@@ -819,7 +819,7 @@ export class App<T> {
         //const Products = this.productCollection;
         const self = this;
 
-        return function(this:{userId:string}, data:IGenericInsertArguments<T>):IGenericInsertResult {            
+        return async function(this:{userId:string}, data:IGenericInsertArguments<T>):Promise<IGenericInsertResult> {            
             const { productId, appId, values } = data;
 
             try {
@@ -836,21 +836,47 @@ export class App<T> {
                 return { status: EnumMethodResult.STATUS_NOT_LOGGED_IN, statusText: 'Sie sind nicht am System angemeldet' }
             }
 
-            return self.insert(values, currentUser);
+            let result: IGenericInsertResult;
+
+            const { client } = MongoInternals.defaultRemoteCollectionDriver().mongo;
+            const session = await client.startSession();
+            await session.startTransaction();
+
+            try {
+                // running the async operations
+                result = await self._insert(values, currentUser, { session });
+                if (result.status != EnumMethodResult.STATUS_OKAY) {
+                    await session.abortTransaction();
+                } else {
+                    await session.commitTransaction();
+                }
+                // transaction committed - return value to the client
+                return result;                
+            } catch (err) {
+                await session.abortTransaction();
+
+                console.error(err.message);
+                // transaction aborted - report error to the client
+                throw new Meteor.Error('Database Transaction Failed', err.message);
+            } finally {
+                session.endSession();
+            }
+        
+            //return self.insert(values, currentUser);
         }
     }
 
     /**
      * Inserts a new document for this app
      */
-    protected insert(values: AppData<T>, currentUser: IWorldUser): IGenericInsertResult {
+    protected async _insert(values: AppData<T>, currentUser: IWorldUser, options?:any): Promise<IGenericInsertResult> {
         const { namesAndMessages } = this.app
 
         if (this.app.methods && this.app.methods.onBeforeInsert) {
             let result;
 
             try {
-                result = this.app.methods.onBeforeInsert(values)
+                result = await this.app.methods.onBeforeInsert(values, { session: options?.session });
             } catch(err) {
                 return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: err.message }
             }
@@ -867,10 +893,11 @@ export class App<T> {
             // the initial value should always above 0 because of if(_rev)
             values._rev = 1;
             // insert data to store
-            docId = this.collection.insert(injectUserData({ currentUser }, values));
+            const result: InsertOneWriteOpResult = await this.rawCollection().insertOne(injectUserData({ currentUser }, values), options);
+            docId = result.insertedId;
             
             // Insert into activities log
-            Activities.insert(
+            Activities.rawCollection().insertOne(
                 injectUserData({ currentUser }, {
                     productId: this.app.productId,
                     appId: this.appId,
@@ -878,7 +905,7 @@ export class App<T> {
                     type: 'SYSTEM-LOG',
                     action: 'INSERT',
                     message: namesAndMessages.messages.activityRecordInserted || `hat ${namesAndMessages.singular.mitArtikel} erstellt`
-                }, { created: true })
+                }, { created: true }), options
             );
         } catch(err) {
             return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: 'Fehler beim insert der Daten oder Activity\n' + err.message };
@@ -888,7 +915,7 @@ export class App<T> {
             let result;
 
             try {
-                result = this.app.methods.onAfterInsert(values)
+                result = await this.app.methods.onAfterInsert(docId as string, values, { session: options?.session });
             } catch(err) {
                 return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: err.message }
             }
@@ -903,31 +930,6 @@ export class App<T> {
             docId
         }
     }
-
-    /*private updateDocument():MethodInvocationFunction {
-        const self = this;
-
-        return function(this:{userId:string}, data:IGenericUpdateArguments<T>):IGenericUpdateResult {            
-            const { productId, appId, docId, values } = data;
-            
-            try {
-                check(productId, String);
-                check(appId, String);
-                check(docId, String);
-                check(values, Object);
-            } catch (err){
-                return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: `Die angegebenen Parameter entsprechen nicht der Signatur für "${self.appId}.updateDocument()"` }
-            }
-
-            const currentUser = <IWorldUser>Meteor.users.findOne(this.userId);
-
-            if (!currentUser) {
-                return { status: EnumMethodResult.STATUS_NOT_LOGGED_IN, statusText: 'Sie sind nicht am System angemeldet' }
-            }
-
-            return self._update(docId, values, currentUser);
-        }
-    }*/
 
     private updateDocument():MethodInvocationFunction {
         const self = this;
@@ -982,8 +984,6 @@ export class App<T> {
      * Update a document for this app
     */
     protected async _update(docId: string, values: UpdateableAppData<T>, currentUser: IWorldUser, options?:any): Promise<IGenericUpdateResult> {
-        //const { namesAndMessages } = this.app
-            
         const oldValues = <AppData<T>> await this.collection.rawCollection().findOne({
             $and: [
                 { _id: docId },
@@ -1012,12 +1012,11 @@ export class App<T> {
             let result;
 
             try {
-                result = await this.app.methods.onBeforeUpdate(docId, values, oldValues, options?.session)
+                result = await this.app.methods.onBeforeUpdate.apply(null, [docId, values, oldValues, { session: options?.session, hasChanged: this.hasChanged(values, oldValues) } ]);
             } catch(err) {
                 return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: err.message }
             }
 
-            console.log('result from onBeforeUpdate', this.appId, result.status)
             if (result.status != EnumMethodResult.STATUS_OKAY) {
                 return { status: result.status, statusText: result.statusText }
             }
@@ -1065,12 +1064,153 @@ export class App<T> {
             let result;
 
             try {
-                result = await this.app.methods.onAfterUpdate(docId, values, oldValues, options?.session);
+                result = await this.app.methods.onAfterUpdate.apply(null, [docId, values, oldValues, { session: options?.session, hasChanged: this.hasChanged(values, oldValues) } ]);
             } catch(err) {
                 return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: err.message }
             }
             
-            console.log('result from onAfterUpdate', this.appId, result.status)
+            if (result.status != EnumMethodResult.STATUS_OKAY) {
+                return { status: result.status, statusText: result.statusText }
+            }
+        }
+
+        return {
+            status: EnumMethodResult.STATUS_OKAY,
+            affectedDocs
+        }
+    }
+
+    private removeDocument():MethodInvocationFunction {
+        const self = this;
+
+        return async function(this:{userId:string}, data:IGenericRemoveArguments):Promise<IGenericRemoveResult> {            
+            const { productId, appId, docId } = data;
+            
+            try {
+                check(productId, String);
+                check(appId, String);
+                check(docId, String);
+            } catch (err){
+                return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: `Die angegebenen Parameter entsprechen nicht der Signatur für "${self.appId}.removeDocument()"` }
+            }
+
+            const currentUser = <IWorldUser>Meteor.users.findOne(this.userId);
+
+            if (!currentUser) {
+                return { status: EnumMethodResult.STATUS_NOT_LOGGED_IN, statusText: 'Sie sind nicht am System angemeldet' }
+            }
+
+            let result: IGenericUpdateResult;
+
+            const { client } = MongoInternals.defaultRemoteCollectionDriver().mongo;
+            const session = await client.startSession();
+            await session.startTransaction();
+
+            try {
+                // running the async operations
+                result = await self._remove(docId, currentUser, { session });
+                if (result.status != EnumMethodResult.STATUS_OKAY) {
+                    await session.abortTransaction();
+                } else {
+                    await session.commitTransaction();
+                }
+                // transaction committed - return value to the client
+                return result;                
+            } catch (err) {
+                await session.abortTransaction();
+
+                console.error(err.message);
+                // transaction aborted - report error to the client
+                throw new Meteor.Error('Database Transaction Failed', err.message);
+            } finally {
+                session.endSession();
+            }
+        }
+    }
+
+    /**
+     * Remove a document for this app
+    */
+     protected async _remove(docId: string, currentUser: IWorldUser, options?:any): Promise<IGenericRemoveResult> {
+        const oldValues = <AppData<T>> await this.collection.rawCollection().findOne({
+            $and: [
+                { _id: docId },
+                {
+                    $or: [
+                        { "sharedWith.user.userId": currentUser._id },
+                        { sharedWithRoles: { $in: currentUser.userData.roles } }
+                    ]
+                }
+            ]
+        }, options);
+
+        /*
+            prüfen, ob ein Record zurückgeliefert wurde. Falls dem nicht so ist, hat dies
+            folgende Gründe:
+            - recordID ist falsch
+            - Record wurde nicht mit dem benutzer explizit geteilt
+            - Benutzer hat nicht die entsprechende Rolle (geteilt)
+        */
+        if (!oldValues) {
+            return { status: EnumMethodResult.STATUS_NOT_FOUND, statusText: 'Der Datensatz kann nicht gelöscht werden, da diser nicht exisitiert oder nicht mit Ihnen geteilt wurde.' }
+        }
+
+
+        if (this.app.methods && this.app.methods.onBeforeRemove) {
+            let result;
+
+            try {
+                result = await this.app.methods.onBeforeRemove.apply(null, [oldValues, { session: options?.session } ]);
+            } catch(err) {
+                return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: err.message }
+            }
+
+            if (result.status != EnumMethodResult.STATUS_OKAY) {
+                return { status: result.status, statusText: result.statusText }
+            }
+        }      
+
+        let affectedDocs: number = 0;
+
+        try {
+            // update data to store
+            const removeResult: WriteOpResult = await this.collection.rawCollection().remove({_id:oldValues._id}, options);
+            //console.log('Remove result:', removeResult);
+            affectedDocs = removeResult.result && removeResult.result.ok;
+
+            // Insert into activities log
+            await Activities.rawCollection().insertOne(
+                injectUserData({ currentUser }, {
+                    productId: this.app.productId,
+                    appId: this.appId,
+                    docId: oldValues._id,
+                    type: 'SYSTEM-LOG',
+                    action: 'REMOVE',
+                    changes: {
+                        message:'hat das Dokument gelöscht.',
+                        changes: {
+                            what: 'Das gesamte Dokument wurde gelöscht.',
+                            message: `Alles wurde gelöscht.`,
+                            propName: '$remove',
+                            oldValue: oldValues,
+                            newValue: null
+                        }
+                    },
+                }, { created: true })
+            , { session: options?.session } );
+        } catch(err) {
+            return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: 'Fehler beim insert der Daten oder Activity\n' + err.message };
+        }
+
+        if (this.app.methods && this.app.methods.onAfterRemove) {
+            let result;
+
+            try {
+                result = await this.app.methods.onAfterRemove.apply(null, [oldValues, { session: options?.session } ]);
+            } catch(err) {
+                return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: err.message }
+            }
+            
             if (result.status != EnumMethodResult.STATUS_OKAY) {
                 return { status: result.status, statusText: result.statusText }
             }
@@ -1084,6 +1224,19 @@ export class App<T> {
 
     public rawCollection() {
         return this.collection.rawCollection();
+    }
+
+    /**
+     * Checks if property value has changed
+     * 
+     * @param NEW Values set for Update
+     * @param OLD old Data values from store
+     * @returns function to check Property
+     */
+    private hasChanged(NEW:AppData<T> | UpdateableAppData<T>, OLD:AppData<T> | UpdateableAppData<T>): (propName: keyof T) => boolean {
+        return function (propName: keyof T) {
+            return NEW[propName] !== undefined && (NEW[propName] !== OLD[propName]);
+        }
     }
 
     /**

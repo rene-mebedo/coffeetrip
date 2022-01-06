@@ -1,4 +1,4 @@
-import { FieldNamesAndMessages } from "/imports/api/lib/helpers";
+import { FieldNamesAndMessages, isOneOf } from "/imports/api/lib/helpers";
 import { defaultSecurityLevel } from "../../security";
 import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
 
@@ -15,6 +15,9 @@ export interface Teilprojekt extends IGenericApp {
     teilprojektname: string
     zeitraum: Array<Date>
     status: string
+    dlGesamt: number
+    dlVerbraucht: number
+    dlRest: number
 }
 
 
@@ -93,6 +96,28 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
         },
 
         status: StatusField,
+
+        dlGesamt: {
+            type: EnumFieldTypes.ftInteger,
+            rules: [ ],
+            ...FieldNamesAndMessages('der', 'Aufwand', 'die', 'Aufwände', { onUpdate: 'den Aufwand' } ),
+            ...defaultSecurityLevel
+        },
+        
+        dlVerbraucht: {
+            type: EnumFieldTypes.ftInteger,
+            rules: [ ],
+            ...FieldNamesAndMessages('der', 'Aufwand (Verbraucht)', 'die', 'verbrauchten Aufwände', { onUpdate: 'den Aufwand (Verbrauch)' } ),
+            ...defaultSecurityLevel
+        },
+
+        dlRest: {
+            type: EnumFieldTypes.ftInteger,
+            rules: [ ],
+            ...FieldNamesAndMessages('der', 'Aufwand (Rest)', 'die', 'verbleibenden Aufwände', { onUpdate: 'den Aufwand (Rest)' } ),
+            ...defaultSecurityLevel
+        }
+
     },
 
     layouts: {
@@ -108,6 +133,17 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
                 { field: 'projekt', controlType: EnumControltypes.ctSingleModuleOption },
                 { field: 'zeitraum', controlType: EnumControltypes.ctDatespanInput },
                 { field: 'status', controlType: EnumControltypes.ctOptionInput, values: Projektstati },
+                { controlType: EnumControltypes.ctColumns, columns: [
+                    { columnDetails: { xs:24, sm:24, md:8 }, elements: [
+                        { field: 'dlGesamt', title: 'Gesamtaufwand', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-list'},
+                    ]},
+                    { columnDetails: { xs:24, sm:24, md:8 }, elements: [
+                        { field: 'dlVerbraucht', title: 'bereits Verbraucht', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-tasks'},
+                    ]},
+                    { columnDetails: { xs:24, sm:24, md:8 }, elements: [
+                        { field: 'dlRest', title: 'Rest', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-list-ul' },
+                    ]}
+                ]},
                 { controlType: EnumControltypes.ctReport, reportId: AktivitaetenByTeilprojekte.reportId },
             ]
         },
@@ -143,37 +179,36 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
             return defaults;
         },
 
-        onBeforeUpdate: async (tpId, tp, tpOld, session) => {          
-            if (tp.status != tpOld.status && tp.status == 'abgesagt') {
-                // soll das Teilprojekt abgesagt werden, so muss geprüft werden, ob es nicht schon
-                // Einzelleistungen = Aktivitäten bestätigt oder abgerechnet wurden. In diesem Fall
-                // kann das Teilprojekt nicht mehr abgesagt werden.
-                const akt = await Aktivitaeten.rawCollection().findOne({ 
-                    'teilprojekt._id' : tpId,
-                    status: { $in: ['bestätigt', 'abgerechnet', 'durchgeführt'] } 
-                }, { session });
-                
-                if (!!akt) return { status: EnumMethodResult.STATUS_ABORT, statusText: `Das Teilprojekt "${tpOld.title}" kann nicht abgesagt werden, da die Aktivität "${akt.title}" bereits bestätigt ist.` }
+        onBeforeUpdate: async (_tpId, NEW, OLD, { hasChanged }) => {
+            const statusChanged = hasChanged('status'); //NEW.status !== OLD.status;
+            
+            if ( statusChanged ) {
+                if ( NEW.status == 'abgesagt' && isOneOf(OLD.status, ['bestätigt', 'abgerechnet', 'durchgeführt']) ) {
+                    return { status: EnumMethodResult.STATUS_ABORT, statusText: `Das Teilprojekt "${OLD.title}" kann nicht abgesagt werden, da es bereits den Status "${OLD.status}" hat.` }
+                }
             }
 
             return { status: EnumMethodResult.STATUS_OKAY };
         },
 
-        onAfterUpdate: async (tpId, tp, tpOld, session) => {
-            if (tp.status != tpOld.status) {
-                const akts = await Aktivitaeten.rawCollection().find({ 'teilprojekt._id' : tpId }).toArray();
+        onAfterUpdate: async (tpId, NEW, _OLD, { session, hasChanged }) => {
+            const statusChanged = hasChanged('status'); // NEW.status && (NEW.status !== OLD.status);
+
+            if (statusChanged) {
+                // wenn das Teilprojekt den Status verändert, soll dieser neue Status auch auf die 
+                // darunterliegenden Aktivitäten übertragen werden
+                const akts = await Aktivitaeten.rawCollection().find({ 'teilprojekt._id' : tpId }, { session }).toArray();
                 
                 let i, max: number;
                 for(i = 0, max = akts.length; i < max; i++) {
                     const akt = akts[i];
-                    if (akt.status === tpOld.status) {
-                        const result = await Aktivitaeten.updateOne(akt._id, {
-                            status: tp.status
-                        }, { session });
+                    
+                    const result = await Aktivitaeten.updateOne(akt._id, {
+                        status: NEW.status
+                    }, { session });
 
-                        if (result.status != EnumMethodResult.STATUS_OKAY) {
-                            return result;
-                        }
+                    if (result.status != EnumMethodResult.STATUS_OKAY) {
+                        return result;
                     }
                 }
             }

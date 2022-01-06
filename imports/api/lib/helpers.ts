@@ -22,3 +22,19 @@ export const FieldNamesAndMessages = (artikel: string, nameSingular: string, art
     return nam;
 }
 
+/**
+ * Check if the value is an item of the array
+ * 
+ * @param {*} v Value to compare with Array-items
+ * @param {*} a Array to compare
+ * @returns true or false if value exists in item
+ */
+ export const isOneOf = (v:any, a:Array<any>):boolean => {
+	let i:number, max:number = a.length;
+
+	for (i=0; i < max; i++) {
+		if (a[i] === v) return true;
+	}
+
+	return false;
+}

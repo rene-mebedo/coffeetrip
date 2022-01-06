@@ -97,14 +97,6 @@ export const Projekte = Consulting.createApp<Projekt>({
 
         status: StatusField,
         
-        /*{
-            type: EnumFieldTypes.ftString,
-            rules: [
-                { required: true, message: 'Bitte geben Sie den Status an.' },
-            ],
-            ...FieldNamesAndMessages('der', 'Status', 'die', 'Status', { onUpdate: 'den Status' } ),
-            ...defaultSecurityLevel
-        },*/
         dlGesamt: {
             type: EnumFieldTypes.ftInteger,
             rules: [
@@ -116,18 +108,14 @@ export const Projekte = Consulting.createApp<Projekt>({
         
         dlVerbraucht: {
             type: EnumFieldTypes.ftInteger,
-            rules: [
-                { required: true, message: 'Bitte geben Sie den Projektaufwand (Verbraucht) an.' },
-            ],
+            rules: [ ],
             ...FieldNamesAndMessages('der', 'verbrauchte Projektaufwand', 'die', 'verbrauchten Projektaufwände', { onUpdate: 'den Projektaufwand (Verbrauch)' } ),
             ...defaultSecurityLevel
         },
 
         dlRest: {
             type: EnumFieldTypes.ftInteger,
-            rules: [
-                { required: true, message: 'Bitte geben Sie den Projektaufwand (Rest) an.' },
-            ],
+            rules: [ ],
             ...FieldNamesAndMessages('der', 'verbleibende Projektaufwand', 'die', 'verbleibenden Projektaufwände', { onUpdate: 'den Projektaufwand (Rest)' } ),
             ...defaultSecurityLevel
         }
@@ -170,32 +158,10 @@ export const Projekte = Consulting.createApp<Projekt>({
             return {}
         },
 
-        onBeforeUpdate: async (projektId, prj, prjOld, session) => {
-            if (prj.status != prjOld.status && prj.status == 'abgesagt') {
-                // soll das Projekt abgesagt werden, so muss geprüft werden, obe nicht schon
-                // Einzelleistungen bestätigt oder abgerechnet wurden. In diesem Fall
-                // kann das Gesamtprojekt nicht mehr abgesagt werden.
-                const tp = await Teilprojekte.rawCollection().findOne({
-                    'projekt._id' : projektId,
-                    status: { $in: ['bestätigt', 'abgerechnet', 'durchgeführt'] }
-                }, { session });
-                if (tp) return { status: EnumMethodResult.STATUS_ABORT, statusText: 'Das Gesamtprojekt kann nicht abgesagt werden, da bereits einzelne Teilprojekte und/oder Aktivitäten bestätigt wurden.' }
+        onAfterUpdate: async (projektId, NEW, OLD, session): Promise<IAppMethodResult> => {    
+            const statusChanged = NEW.status !== OLD.status;
 
-                /* diese Prüfung erfolgt nun im BeforeUpdate des Teilprojekts
-                    um im späteren die Transaktion zu testen
-                
-                    const akt = Aktivitaeten.findOne({
-                    'projekt._id' : projektId,
-                    status: { $in: ['bestätigt', 'abgerechnet', 'durchgeführt'] } 
-                });
-                if (akt) return { status: EnumMethodResult.STATUS_ABORT, statusText: 'Das Gesamtprojekt kann nicht abgesagt werden, da bereits einzelne Teilprojekte und/oder Aktivitäten bestätigt wurden.' }*/
-            }
-
-            return { status: EnumMethodResult.STATUS_OKAY };
-        },
-
-        onAfterUpdate: async (projektId, prj, prjOld, session): Promise<IAppMethodResult> => {    
-            if (prj.status != prjOld.status) {
+            if (statusChanged) {
                 // soll das Projekt abgesagt werden, so muss geprüft werden, ob es nicht schon
                 // Einzelleistungen bestätigt oder abgerechnet wurden. In diesem Fall
                 // kann das Gesamtprojekt nicht mehr abgesagt werden.
@@ -204,18 +170,13 @@ export const Projekte = Consulting.createApp<Projekt>({
                 let i:number, max:number=tps.length;
                 for (i = 0; i < max; i++) {
                     const tp = tps[i];
-                    // nur den Status des Teilprojekts aktualivieren
-                    // z.B. Aktiv setzten wenn dieser den gleichen Status aufweist wie das zugehörige Projekt.
-                    // Steht das Projekt auf geplant und das TP jedoch auf "abgelehnt" so soll
-                    // das TP nicht auf aktiv geschaltet werden und behält den "abgelehnt"-Status
-                    if (tp.status === prjOld.status) {
-                        const result = await Teilprojekte.updateOne(tp._id, {
-                            status: prj.status
-                        }, { session });
 
-                        if (result.status != EnumMethodResult.STATUS_OKAY) {
-                            return result;
-                        }
+                    const result = await Teilprojekte.updateOne(tp._id, {
+                        status: NEW.status
+                    }, { session });
+
+                    if (result.status != EnumMethodResult.STATUS_OKAY) {
+                        return result;
                     }
                 }
             }

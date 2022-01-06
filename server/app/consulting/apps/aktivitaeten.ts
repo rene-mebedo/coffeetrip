@@ -1,6 +1,6 @@
-import { FieldNamesAndMessages } from "/imports/api/lib/helpers";
+import { FieldNamesAndMessages, isOneOf } from "/imports/api/lib/helpers";
 import { defaultSecurityLevel } from "../../security";
-import { EnumControltypes, EnumFieldTypes } from "/imports/api/consts";
+import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
 
 import { DefaultAppData, IAppLink, IAppMethodsDefaultProps, IGenericApp, TAppLink } from "/imports/api/types/app-types";
 import { Consulting } from "..";
@@ -8,6 +8,8 @@ import { StatusField } from "../../akademie/apps/seminare";
 import { Projektstati } from "./projektstati";
 import { Projekt, Projekte } from "./projekte";
 import { Teilprojekte } from "./teilprojekte";
+import { Einheiten } from "./einheiten";
+
 
 export interface Aktivitaet extends IGenericApp {
     projekt: TAppLink
@@ -16,8 +18,12 @@ export interface Aktivitaet extends IGenericApp {
     nummer: string
     zeitraum: Array<Date>
     status: string
+    beschreibung: string
+    aufwandPlan: number
+    aufwandIst: number
+    aufwandRest: number
+    einheit: string
 }
-
 
 export const Aktivitaeten = Consulting.createApp<Aktivitaet>({
     _id: 'aktivitaeten',
@@ -119,6 +125,46 @@ export const Aktivitaeten = Consulting.createApp<Aktivitaet>({
 
         status: StatusField,
         
+        beschreibung: {
+            type: EnumFieldTypes.ftString, 
+            rules: [
+                { required: true, message: 'Bitte geben Sie eine kurze Beschreibung ein.' },    
+            ],
+            ...FieldNamesAndMessages('die', 'Beschreibung', 'die', 'Beschreibung'),
+            ...defaultSecurityLevel
+        },
+
+        aufwandPlan: {
+            type: EnumFieldTypes.ftInteger,
+            rules: [
+                { required: true, message: 'Bitte geben Sie den Aufwand an.' },
+            ],
+            ...FieldNamesAndMessages('der', 'Aufwand (Plan)', 'die', 'Aufwände', { onUpdate: 'den Aufwand (Plan)' } ),
+            ...defaultSecurityLevel
+        },
+        
+        aufwandIst: {
+            type: EnumFieldTypes.ftInteger,
+            rules: [ ],
+            ...FieldNamesAndMessages('der', 'Aufwand (Ist)', 'die', 'Aufwände (Ist)', { onUpdate: 'den Aufwand (Ist)' } ),
+            ...defaultSecurityLevel
+        },
+
+        aufwandRest: {
+            type: EnumFieldTypes.ftInteger,
+            rules: [ ],
+            ...FieldNamesAndMessages('der', 'Aufwand (Rest)', 'die', 'Aufwände (Rest)', { onUpdate: 'den Aufwand (Rest)' } ),
+            ...defaultSecurityLevel
+        },
+
+        einheit: {
+            type: EnumFieldTypes.ftString,
+            rules: [
+                { required: true, message: 'Bitte geben Sie den Aufwand an.' },
+            ],
+            ...FieldNamesAndMessages('die', 'Einheit', 'die', 'Einheiten' ),
+            ...defaultSecurityLevel
+        }
     },
 
     layouts: {
@@ -134,7 +180,12 @@ export const Aktivitaeten = Consulting.createApp<Aktivitaet>({
                 { field: 'projekt', controlType: EnumControltypes.ctSingleModuleOption },
                 { field: 'teilprojekt', controlType: EnumControltypes.ctSingleModuleOption },
                 { field: 'zeitraum', controlType: EnumControltypes.ctDatespanInput },
-                { field: 'status', controlType: EnumControltypes.ctOptionInput, values: Projektstati }
+                { field: 'status', controlType: EnumControltypes.ctOptionInput, values: Projektstati },
+                { field: 'beschreibung', controlType: EnumControltypes.ctHtmlInput },
+                { title: 'Aufwand', controlType: EnumControltypes.ctInlineCombination, elements: [
+                    { noTitle: true, field: 'aufwandPlan', controlType: EnumControltypes.ctNumberInput },
+                    { field: 'einheit', controlType: EnumControltypes.ctOptionInput, values: Einheiten },
+                ]}
             ]
         },
     },
@@ -173,6 +224,56 @@ export const Aktivitaeten = Consulting.createApp<Aktivitaet>({
         
             return defaults;
         },
+
+        onBeforeUpdate: async function (_aktId, NEW, OLD, { hasChanged }) {
+            if (hasChanged('aufwandPlan')) {
+                NEW.aufwandRest = (NEW.aufwandPlan || 0) - (OLD.aufwandIst || 0);
+            }
+
+            if (hasChanged('status')){
+                if (NEW.status == 'abgesagt' && isOneOf(OLD.status, ['bestätigt', 'abgerechnet', 'durchgeführt'])) {
+                    return { status: EnumMethodResult.STATUS_ABORT, statusText: `Die Aktivität "${OLD.title}" kann nicht abgesagt werden, da sie bereits den Status "${OLD.status}" aufweist.` }                
+                }
+            }
+
+            return { status: EnumMethodResult.STATUS_OKAY };
+        },
+
+        onAfterUpdate: async (_aktId, NEW, OLD, { session, hasChanged }) => {
+            const aufwandPlanChanged = hasChanged('aufwandPlan');
+            
+            if (aufwandPlanChanged) {
+                const tpId = OLD.teilprojekt[0]._id;
+                const tp = await Teilprojekte.rawCollection().findOne({ _id: tpId }, { session } );
+                const dlGesamt:number = (tp.dlGesamt || 0) + (NEW.aufwandPlan || 0) - (OLD.aufwandPlan || 0);
+                
+                await Teilprojekte.updateOne(tpId, { dlGesamt }, { session });
+            }
+
+            return { status: EnumMethodResult.STATUS_OKAY };
+        },
+
+        onBeforeRemove: async function ( OLD ) {
+            if (OLD.aufwandIst > 0) {
+                return { status: EnumMethodResult.STATUS_ABORT, statusText: `Die Aktivität "${OLD.title}" kann nicht gelöscht werden, da bereits Buchungen vorliegen.` }
+            }
+
+            if (isOneOf(OLD.status, ['bestätigt', 'abgerechnet', 'durchgeführt'])) {
+                return { status: EnumMethodResult.STATUS_ABORT, statusText: `Die Aktivität "${OLD.title}" kann nicht gelöscht werden, da sie bereits den Status "${OLD.status}" aufweist.` }
+            }
+            return { status: EnumMethodResult.STATUS_OKAY };
+        },
+
+        onAfterRemove: async function (OLD, { session }) {
+            // das Löschen der Aktivität muss den Gesamtaufwand des Teilprojekts verringern
+            const tpId = OLD.teilprojekt[0]._id;
+            const tp = await Teilprojekte.rawCollection().findOne({ _id: tpId }, { session } );
+            const dlGesamt:number = (tp.dlGesamt || 0) - (OLD.aufwandPlan || 0);
+            
+            await Teilprojekte.updateOne(tpId, { dlGesamt }, { session });
+
+            return { status: EnumMethodResult.STATUS_OKAY };
+        }
     },
 
     dashboardPicker: () => {

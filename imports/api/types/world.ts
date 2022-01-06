@@ -4,6 +4,9 @@ import { AppData, TInjectables } from './app-types';
 import { EnumDocumentModes, EnumMethodResult } from '/imports/api/consts';
 import { ChartOptions, ChartData } from 'chart.js';
 
+import { ModalFunc } from 'antd/lib/modal/confirm';
+import { MessageApi } from 'antd/lib/message';
+
 export interface IUserShort {
     userId: string,
     firstName: string,
@@ -87,6 +90,7 @@ export interface IReportColumns<T> {
     dataIndex: string
     title: string
     render?: TColumnRenderer<T> //string | ((columnData: any, doc:AppData<any>, extras: IReportRendererExtras) => string | JSX.Element) | undefined
+    align?: 'left' | 'right' | 'center'
 }
 
 export interface IReport<T, Caller> {
@@ -154,6 +158,27 @@ export interface IReportAction {
 }
 
 
+export interface IRunScriptData {
+    /**
+     * current rowdata of the report where the action is located
+     */
+    row: AppData<any>
+    /**
+     * Parent/Document that was displayed where the report is implemented
+     * in the layout
+     */
+    document: AppData<any>
+}
+
+export interface IRunScriptTools {
+    confirm: ModalFunc,
+    message: MessageApi
+    /**
+     * Invokes an app-method on the Server
+     */
+    invoke: (name: string, ...args: any[]) => any;
+}
+
 export interface IReportActionExecution {
     /**
      * URL, die aufgerufen werden soll, sobald die Aktion ausgeführt wird
@@ -169,5 +194,5 @@ export interface IReportActionExecution {
     /**
      * Funktion, die als methode für Server und client registriert wird
      */
-    runScript?: string | (() => string);
+    runScript?: string | ((data: IRunScriptData, tools: IRunScriptTools) => void);
 }

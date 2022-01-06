@@ -12,13 +12,16 @@ import Table/*,{ ColumnsType }*/ from 'antd/lib/table';
 import Tag from 'antd/lib/tag';
 import Card from 'antd/lib/card'
 import Statistic from 'antd/lib/statistic';
+import Modal from 'antd/lib/modal';
 
-import { IChartData, IReport, IReportAction, IReportActionExecution, IReportDatasourceProps, IWorldUser, TColumnRenderer } from '/imports/api/types/world';
+const { confirm } = Modal;
+
+import { IChartData, IReport, IReportAction, IReportActionExecution, IReportDatasourceProps, IRunScriptTools, IWorldUser, TColumnRenderer } from '/imports/api/types/world';
 import { AppData, IGetReportResult } from '/imports/api/types/app-types';
-import { EnumDocumentModes } from '/imports/api/consts';
+import { EnumDocumentModes, EnumMethodResult } from '/imports/api/consts';
 
 import { FlowRouter } from 'meteor/kadira:flow-router';
-import { deepClone, isArray } from '/imports/api/lib/basics';
+import { deepClone, isArray, isFunction } from '/imports/api/lib/basics';
 import { withTracker } from 'meteor/react-meteor-data';
 import { getAppStore } from '/imports/api/lib/core';
 
@@ -29,12 +32,14 @@ import Affix from 'antd/lib/affix';
 import { Bar, Line, Pie } from 'react-chartjs-2';
 
 
-// dummyfoo was added to use getAppstore, check, Match and <Tag> in LiveDatasource on the client and server
+// dummyfoo was added to use getAppstore, check, Match and <Tag> in LiveDatasource and Report Actions on the client and server
 export const dummyfoo = (): JSX.Element => {
     const x = getAppStore('x');
     check('String', Match.OneOf(String, Boolean));
     
-    return <Tag>{x}</Tag>
+    if ('200' == EnumMethodResult.STATUS_OKAY) return <Tag>{x}</Tag>
+
+    return <Tag>Dummy</Tag>
 }
 
 interface IReportWithData extends IReport<any,any> {
@@ -210,7 +215,7 @@ const ReportGeneralActions = (props: IReportGeneralActionsProps) => {
 }
 
 const executeAction = (onExecute: IReportActionExecution, mode: EnumDocumentModes | "dashboard", defaults: AppData<any>, doc: AppData<any>, rowdoc: AppData<any> | undefined, report: IReportWithData) => {
-    let { redirect, exportToCSV } = onExecute;
+    let { redirect, exportToCSV, runScript } = onExecute;
     
     if (redirect) {
         const data = mode == 'NEW' ? defaults : doc;
@@ -252,6 +257,28 @@ const executeAction = (onExecute: IReportActionExecution, mode: EnumDocumentMode
         //document.body.appendChild(link); // Required for FF
 
         return link.click();
+    }
+
+    if (runScript) {
+        
+        try {
+            const fn = eval(runScript as string);
+
+            fn({ row: rowdoc, document: doc}, {
+                confirm,
+                message,
+                invoke: (name: string, ...args:any[]) => {
+                    let callback = (_error: Meteor.Error | any, _result?: any) => {};
+                    if (args && isFunction(args[args.length-1])) {
+                        callback = args.pop()
+                    }
+                    console.log('args', args);
+                    Meteor.apply('__app.' + name, args, {}, callback);
+                }
+            } as IRunScriptTools);
+        } catch (err) {
+            console.log('Error while runScript.', err);
+        }
     }
 }
 
@@ -585,7 +612,6 @@ class ReportLiveDataControl extends React.Component<IReportLiveDataControlProps,
                     this.widgetActions.push(<ReportAction report={report} action={moreActions} reportParams={reportParams} />);
                 }
             }
-
         }
     }
 
@@ -594,21 +620,19 @@ class ReportLiveDataControl extends React.Component<IReportLiveDataControlProps,
         const { type, columns, title, nestedReportId } = report;
 
         report.data = data;
-        //console.log('Reportdata', loading, data);
-        //if (loading) return <Skeleton />;
 
         if (type == 'table') {
-            let cols = columns || [];
+            let cols: Array<any> = [];
 
-            if (this.actionColumn) {
-                cols.push(this.actionColumn);
+            if (columns && this.actionColumn) {
+                cols = columns.concat([ this.actionColumn ])
             }
 
             return <Table 
                 rowKey="_id" 
                 dataSource={data as any } 
                 pagination={false} 
-                columns={cols as any } 
+                columns={ cols } 
                 title={() => 
                     <Space>
                         <span>{title}</span>

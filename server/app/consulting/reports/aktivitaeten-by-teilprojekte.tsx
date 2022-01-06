@@ -6,10 +6,30 @@ import { getAppStore } from '/imports/api/lib/core';
 import { check } from 'meteor/check';
 
 import { IReportRendererExtras } from '/imports/api/types/world';
-import { EnumDocumentModes } from '/imports/api/consts';
+import { EnumDocumentModes, EnumMethodResult } from '/imports/api/consts';
 import { Teilprojekt } from '../apps/teilprojekte';
 import { Projektstati } from '../apps/projektstati';
 import { Aktivitaet } from '../apps/aktivitaeten';
+import { Einheiten } from '../apps/einheiten';
+import { AppData, IGenericRemoveResult, TInjectables, TOptionValues } from '/imports/api/types/app-types';
+
+/**
+ * Darstellung des Aufwands für die entspr. Spalte
+ * @param aufwand 
+ * @param akt 
+ * @param param2 
+ * @returns 
+ */
+const renderAufwand = (aufwand: any, akt: AppData<Aktivitaet>, {injectables, isExport}: {injectables: TInjectables, isExport: boolean}) => {
+    const Einheiten: TOptionValues = injectables.Einheiten;
+    const einheit = Einheiten.find( ({_id}:{_id:any}) => _id == akt.einheit );
+    
+    if (!einheit) {
+        return isExport ? (aufwand || '0') + '!!' + akt.einheit : <Tag>{'!!' + (aufwand || '0 ') + akt.einheit}</Tag>
+    }
+
+    return (aufwand || '0') + ' ' + (aufwand === 1 ? einheit.title : einheit.pluralTitle)
+}
 
 export const AktivitaetenByTeilprojekte = MebedoWorld.createReport<Aktivitaet, Teilprojekt>('aktivitaeten-by-teilprojekte', {
     type: 'table',
@@ -35,7 +55,8 @@ export const AktivitaetenByTeilprojekte = MebedoWorld.createReport<Aktivitaet, T
     },
 
     injectables: {
-        Projektstati
+        Projektstati,
+        Einheiten
     },
 
     columns: [
@@ -53,11 +74,33 @@ export const AktivitaetenByTeilprojekte = MebedoWorld.createReport<Aktivitaet, T
                         : <a href={`/consulting/aktivitaeten/${_id}`}>{title}</a>
                 );
             }
+        },        
+        {
+            title: 'Aufwand',
+            dataIndex: 'aufwandPlan',
+            key: 'aufwandPlan',
+            align: 'right',
+            render: renderAufwand
+        },
+        {
+            title: 'Ist',
+            dataIndex: 'aufwandIst',
+            key: 'aufwandIst',
+            align: 'right',
+            render: renderAufwand
+        },
+        {
+            title: 'Rest',
+            dataIndex: 'aufwandRest',
+            key: 'aufwandRest',
+            align: 'right',
+            render: renderAufwand
         },
         {
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
+            align: 'center',
             render: (status: string, _aktivitaet, { injectables, isExport }: IReportRendererExtras ) => {
                 const { Projektstati } = injectables;
                 const aktStatus = Projektstati.find( ({_id}:{_id:any}) => _id == status );
@@ -135,7 +178,7 @@ export const AktivitaetenByTeilprojekte = MebedoWorld.createReport<Aktivitaet, T
                 redirect: '/consulting/aktivitaeten/{{rowdoc._id}}'
             }
         },
-        /*{
+        {
             title: 'Löschen',
             type: 'secondary',
             description: 'Löschen eines Seminarteilnehmers',
@@ -149,11 +192,33 @@ export const AktivitaetenByTeilprojekte = MebedoWorld.createReport<Aktivitaet, T
 
             onExecute: { 
                 // executes meteor method
-                runScript: (props) => {
-                    console.log('Run Script', props);
+                runScript: ({ row, document: _doc }, tools ) => {
+                    const { confirm, message, invoke } = tools;
+
+                    confirm({
+                        title: `Möchten Sie die Aktivität wirklich löschen?`,
+                        //icon: <ExclamationCircleOutlined />,
+                        content: <div>Das Löschen der Aktivität <b>{row.title}</b> kann nicht rückgängig gemacht werden!</div>,
+                        onOk() {
+                            invoke('aktivitaeten.removeDocument', { productId: 'consulting', appId: 'aktivitaeten', docId: row._id }, (err: any, res: IGenericRemoveResult) => {
+                                if (err) {
+                                    console.log(err);
+                                    return message.error('Es ist ein unbekannter Fehler aufgetreten.');
+                                }
+                                if (res.status == EnumMethodResult.STATUS_OKAY) {
+                                    return message.success('Die Aktivität wurde erfolgreich gelöscht');
+                                }
+                                if (res.status == EnumMethodResult.STATUS_ABORT) {
+                                    return message.warning(res.statusText);
+                                }
+                                
+                                message.error('Es ist ein Fehler beim Löschen aufgetreten. ' + res.statusText);
+                            });
+                        }
+                    });
                 }
             }
-        }*/
+        }
     ]
     
 })

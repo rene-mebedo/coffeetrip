@@ -54,6 +54,7 @@ import { DividerControl } from './layout-controls/divider';
 import { IGetReportResult } from '/imports/api/types/app-types';
 import { ReportControl } from './layout-controls/report';
 import { NumberInput } from './layout-controls/number-input';
+import { WidgetSimple } from './layout-controls/widget-simple';
 
 
 
@@ -66,6 +67,8 @@ export const getLabel = (elem, fields) => {
 }
 
 export const LayoutElements = ({ elements, app, defaults, document, mode, onValuesChange }) => {
+    console.log('doc', document);
+
     return elements.map( (elem, index) => { 
         const key = elem.field || index;
 
@@ -87,16 +90,17 @@ export const LayoutElements = ({ elements, app, defaults, document, mode, onValu
         if (elem.controlType === EnumControltypes.ctReport ) return <ReportControl key={key} environment='Document' reportId={elem.reportId} title={elem.title} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
         if (elem.controlType === EnumControltypes.ctColumns ) return <ColumnsLayout key={key} elem={elem} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
         if (elem.controlType === EnumControltypes.ctGoogleMap ) return <GoogleMap key={key} elem={elem} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
+        if (elem.controlType === EnumControltypes.ctWidgetSimple ) return <WidgetSimple key={key} elem={elem} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
 
         return null;
     });
 }
 
-export const ColumnsLayout = ({ elem, app, mode, defaults, record, onValuesChange }) => {
+export const ColumnsLayout = ({ elem, app, mode, defaults, document, onValuesChange }) => {
     const { columns } = elem;
 
     return (
-        <Row gutter={8}>
+        <Row gutter={[16,16]} style={{marginBottom:16}}>
             { 
                 columns.map( (col, colIndex) => {
                     const { columnDetails } = col;
@@ -111,7 +115,7 @@ export const ColumnsLayout = ({ elem, app, mode, defaults, record, onValuesChang
     )
 }
 
-const InlineCombination = ({ elem, app, mode, defaults, record, onValuesChange }) => {
+const InlineCombination = ({ elem, app, mode, defaults, document, onValuesChange }) => {
     return (
         <Row className="ant-form-item" style={{ display: 'flex', flexFlow:'row wrap' }}>
             <Col span={6} className="ant-form-item-label">

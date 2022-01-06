@@ -441,7 +441,20 @@ export const AppLayoutElementsSchema = new SimpleSchema({
             location: { type: String } // Funktion, welche den Location-string setzt als return-wert
         }),
         optional: true
-    }
+    },
+    icon: {
+        type: 'String',
+        optional: true
+    },
+    color: {
+        type: 'String', // vertical or horizontal für die Darstellung von Radio Buttons
+        optional: true
+    },
+    backgroundColor: {
+        type: 'String', // vertical or horizontal für die Darstellung von Radio Buttons
+        optional: true
+    },
+
 });
 
 
@@ -541,7 +554,8 @@ export const ReportSchema = new SimpleSchema({
             key: { type: String },
             dataIndex: { type: String },
             title: { type: String },
-            render: { type: String, optional: true }
+            render: { type: String, optional: true },
+            align: { type: String, optional: true },
         })
     },
     staticDatasource: { // datasource für static reports

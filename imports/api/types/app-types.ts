@@ -94,6 +94,10 @@ export interface IEnabledProps {
 export interface IGenericAppLayoutElement<T> {
     field?: T,
     title?: string,
+    /**
+     * True, if the title should be surpressed for the layout
+     */
+    noTitle?: boolean,
     controlType: EnumControltypes,
     enabled?: (props:IEnabledProps) => boolean
 }
@@ -106,9 +110,27 @@ export interface IGoogleMapsLocationProps {
     changedValues?: IGenericDocument
 }
 
+export interface IAppLayoutElementWidgetSimple<T> extends IGenericAppLayoutElement<T> {
+    controlType: EnumControltypes.ctWidgetSimple
+    /**
+     * Fontawesome icon class like 'fas fa-user'
+     */
+    icon: string
+    color?: string
+    backgroundColor?: string
+}
+
 export interface IAppLayoutElementDivider<T> extends IGenericAppLayoutElement<T> {
     controlType: EnumControltypes.ctDivider;
     orientation?: 'left' | 'right' | 'center';
+}
+
+export interface IAppLayoutElementColumns<T> extends IGenericAppLayoutElement<T> {
+    controlType: EnumControltypes.ctColumns;
+    columns: Array<{
+        columnDetails: {[key:string]: any}
+        elements: Array<TAppLayoutElement<T>>
+    }>
 }
 
 export interface IAppLayoutElementCollapsible<T> extends IGenericAppLayoutElement<T> {
@@ -152,6 +174,12 @@ export interface IOptionInputValue {
     icon?: string
 }
 
+export interface IAppLayoutElementInlineCombination<T> extends IGenericAppLayoutElement<T> {
+    title: string,
+    controlType: EnumControltypes.ctInlineCombination,
+    elements: Array<TAppLayoutElement<T>>;
+}
+
 export interface IAppLayoutElementReport<T> extends IGenericAppLayoutElement<T> {
     controlType: EnumControltypes.ctReport,
     reportId: string
@@ -173,7 +201,7 @@ export interface IAppLayoutElementGenericInput<T> extends IGenericAppLayoutEleme
                  EnumControltypes.ctYearInput | 
                  EnumControltypes.ctHtmlInput |
                  EnumControltypes.ctSingleModuleOption |
-                 EnumControltypes.ctReport;
+                 EnumControltypes.ctReport;                
 }
 
 export type TAppLayoutElement<T> = IAppLayoutElementReport<T> |
@@ -181,7 +209,11 @@ export type TAppLayoutElement<T> = IAppLayoutElementReport<T> |
                                 IAppLayoutElementDivider<T> | 
                                 IAppLayoutElementGoogleMap<T> | 
                                 IAppLayoutElementCollapsible<T> |
-                                IAppLayoutElementGenericInput<T>;
+                                IAppLayoutElementInlineCombination<T> |
+                                IAppLayoutElementGenericInput<T> |
+                                IAppLayoutElementWidgetSimple<T> |
+                                IAppLayoutElementColumns<T>;
+
 
 export interface IAppLayout<T> {
     title: string,
@@ -202,15 +234,32 @@ export interface IAppMethodResult {
     statusText?: string | null,
 }
 
-export interface IAppMethods<T> {
-    defaults?: (props: IAppMethodsDefaultProps) => null | DefaultAppData<T>, //{ [key:string]: any },
+export interface TInsertTriggerExtras {
+    session: any,
+}
 
-    onBeforeInsert?: (values: AppData<T>) => IAppMethodResult,
-    onAfterInsert?: (values: AppData<T>) => IAppMethodResult,
-    onBeforeUpdate?: (id: string, values: UpdateableAppData<T>, oldValues: AppData<T>, session:any) => Promise<IAppMethodResult>,
-    onAfterUpdate?: (id: string, values: UpdateableAppData<T>, oldValues: AppData<T>, session:any) => Promise<IAppMethodResult>,
-    onBeforeRemove?: (values: AppData<T>) => IAppMethodResult,
-    onAfterRemove?: (values: AppData<T>) => IAppMethodResult,
+export interface IUpdateTriggerExtras<T> {
+    session: any,
+    /**
+     * Returns True if the specified property value has changed,
+     * otherwise False
+     */
+    hasChanged: (propName: keyof T) => boolean
+}
+
+export interface IRemoveTriggerExtras {
+    session: any,
+}
+
+export interface IAppMethods<T> {
+    defaults?: (props: IAppMethodsDefaultProps) => null | DefaultAppData<T>,
+
+    onBeforeInsert?: (values: AppData<T>, triggerExtras: TInsertTriggerExtras) => Promise<IAppMethodResult>,
+    onAfterInsert?: (id: string, values: AppData<T>, triggerExtras: TInsertTriggerExtras) => Promise<IAppMethodResult>,
+    onBeforeUpdate?: (id: string, values: UpdateableAppData<T>, oldValues: AppData<T>, triggerExtras: IUpdateTriggerExtras<T>) => Promise<IAppMethodResult>,
+    onAfterUpdate?: (id: string, values: UpdateableAppData<T>, oldValues: AppData<T>, triggerExtras: IUpdateTriggerExtras<T>) => Promise<IAppMethodResult>,
+    onBeforeRemove?: (values: AppData<T>, triggerExtras: IRemoveTriggerExtras) => Promise<IAppMethodResult>,
+    onAfterRemove?: (values: AppData<T>, triggerExtras: IRemoveTriggerExtras) => Promise<IAppMethodResult>,
 }
 
 export interface IAppActions {
@@ -369,11 +418,21 @@ export interface IGenericUpdateArguments<T> {
     values: AppData<T>
 }
 
+export interface IGenericRemoveArguments {
+    productId: string,
+    appId: string,
+    docId: string
+}
+
 export interface IGenericInsertResult extends IMethodStatus {
     docId?: string | null
 }
 
 export interface IGenericUpdateResult extends IMethodStatus {
+    affectedDocs?: number | null
+}
+
+export interface IGenericRemoveResult extends IMethodStatus {
     affectedDocs?: number | null
 }
 

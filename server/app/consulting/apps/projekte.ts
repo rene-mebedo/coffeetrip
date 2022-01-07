@@ -17,8 +17,17 @@ export interface Projekt extends IGenericApp {
     zeitraum: Array<Date>
     status: string
     
+    /**
+     * geplanter Gesamtaufwand für das Projekt 
+     **/
     aufwandPlan: number
+    /**
+     * Ist-Aufwand, der bereits für das Projekt geleistet wurde
+     */
     aufwandIst: number
+    /**
+     * Gesamtaufwand (verbleibend) für das Projekte
+     */
     aufwandRest: number
     
     /**
@@ -245,11 +254,30 @@ export const Projekte = Consulting.createApp<Projekt>({
     },
 
     methods: {
-        defaults: () => {
-            return {}
+        defaults: async function () {
+            return {
+                status: EnumMethodResult.STATUS_OKAY,
+                defaults: {
+                    aufwandPlan: 0,
+                    aufwandIst: 0,
+                    aufwandRest: 0,
+                    erloesePlan: 0,
+                    erloeseIst: 0,
+                    erloeseForecast: 0,
+                    erloeseRest: 0
+                }
+            }
         },
 
-        onAfterUpdate: async function (projektId, NEW, _OLD, { session, hasChanged }) {    
+        onBeforeUpdate: async function (_projektId, NEW, OLD, { hasChanged }) {
+            if (hasChanged('aufwandPlan')) {
+                NEW.aufwandRest = (NEW.aufwandPlan || 0) - (OLD.aufwandIst || 0);
+            }
+
+            return { status: EnumMethodResult.STATUS_OKAY };
+        },
+
+        onAfterUpdate: async function (projektId, NEW, _OLD, { session, hasChanged }) {  
             if (hasChanged('status')) {
                 // soll das Projekt abgesagt werden, so muss geprüft werden, ob es nicht schon
                 // Einzelleistungen bestätigt oder abgerechnet wurden. In diesem Fall

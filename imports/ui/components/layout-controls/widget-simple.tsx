@@ -6,6 +6,7 @@ import Statistic from 'antd/lib/statistic';
 import { IGenericControlProps } from "./generic-input-wrapper";
 import { IAppLayoutElementWidgetSimple } from '/imports/api/types/app-types';
 import { EnumDocumentModes } from '/imports/api/consts';
+import { isNumeric } from '/imports/api/lib/basics';
 
 
 export const WidgetSimple = (props: IGenericControlProps) => {
@@ -17,7 +18,15 @@ export const WidgetSimple = (props: IGenericControlProps) => {
     const {mode, document, defaults} = props;
 
     const doc = mode == EnumDocumentModes.NEW ? defaults : document;
-    const value = (doc || {})[elem.field] || '?';
+    const value = (doc || {})[elem.field];
+    let displayValue: string = '';
+
+    if (isNumeric(value)) {
+        // "0" wird auch als false interpretiert
+        displayValue = value + '';
+    } else {
+        displayValue = value || '?';
+    }
 
     return (        
         <div onClick={undefined} style={{color: color, cursor: null ? 'pointer':'default'}} >
@@ -31,7 +40,7 @@ export const WidgetSimple = (props: IGenericControlProps) => {
                     title={<span style={{color}}>{elem.title}</span>}
                 />
                 <Statistic
-                    value={value}
+                    value={displayValue}
                     prefix={<i style={{marginRight:16}} className={elem.icon} />}
                     valueStyle={{ color }}
                 />

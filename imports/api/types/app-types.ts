@@ -223,11 +223,29 @@ export interface IAppLayout<T> {
     elements: Array<TAppLayoutElement<T>>;
 }
 
-export interface IAppMethodsDefaultProps {
-    queryParams?: { [key:string]: any },
-    document?: { [key:string]: any },
-    isServer: boolean,
+export interface IDefaultAppData<T> extends IAppMethodResult {
+    defaults: DefaultAppData<T>
+}
+
+export interface IDefaultsTriggerExtras {
+    session: any,
     moment: any
+}
+
+export interface IAppMethodsDefaultProps<T> {
+    /**
+     * queryParams comming from the client url
+     */
+    queryParams?: { [key:string]: any }
+    /**
+     * unknown??? //TODO -> specify
+     */
+    document?: AppData<T>
+    /**
+     * Injected on the Server insert method with the NEW-data to insert as document
+     */
+    NEW?: AppData<T>
+    isServer: boolean
 }
 
 export interface IAppMethodResult {
@@ -253,7 +271,7 @@ export interface IRemoveTriggerExtras {
 }
 
 export interface IAppMethods<T> {
-    defaults?: (props: IAppMethodsDefaultProps) => null | DefaultAppData<T>,
+    defaults?: (props: IAppMethodsDefaultProps<T>, triggerExtrags?: IDefaultsTriggerExtras) => Promise<IDefaultAppData<T>>,
 
     onBeforeInsert?: (values: AppData<T>, triggerExtras: TInsertTriggerExtras) => Promise<IAppMethodResult>,
     onAfterInsert?: (id: string, values: AppData<T>, triggerExtras: TInsertTriggerExtras) => Promise<IAppMethodResult>,
@@ -438,7 +456,7 @@ export interface IGenericRemoveResult extends IMethodStatus {
 }
 
 export interface IGenericDefaultResult extends IMethodStatus {
-    data: null | IGenericDocument
+    defaults?: null | IGenericDocument
 }
 
 export interface ILockResult extends IMethodStatus {

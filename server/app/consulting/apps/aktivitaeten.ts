@@ -2,7 +2,7 @@ import { FieldNamesAndMessages, isOneOf } from "/imports/api/lib/helpers";
 import { defaultSecurityLevel } from "../../security";
 import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
 
-import { DefaultAppData, IAppLink, IAppMethodsDefaultProps, IGenericApp, TAppLink } from "/imports/api/types/app-types";
+import { DefaultAppData, IAppLink, IGenericApp, TAppLink } from "/imports/api/types/app-types";
 import { Consulting } from "..";
 import { StatusField } from "../../akademie/apps/seminare";
 import { Projektstati } from "./projektstati";
@@ -205,7 +205,7 @@ export const Aktivitaeten = Consulting.createApp<Aktivitaet>({
     },
 
     methods: {
-        defaults: ({ queryParams }:IAppMethodsDefaultProps) => {
+        defaults: async function ({ queryParams }) {
             let defaults: DefaultAppData<Aktivitaet> = {
                 status: 'angemeldet'
             }
@@ -222,7 +222,28 @@ export const Aktivitaeten = Consulting.createApp<Aktivitaet>({
                 }
             }
         
-            return defaults;
+            return {
+                status: EnumMethodResult.STATUS_OKAY,
+                defaults
+            };
+        },
+
+        onBeforeInsert: async function (NEW) {
+            NEW.aufwandRest = NEW.aufwandPlan;
+            
+            return { status: EnumMethodResult.STATUS_OKAY };
+        },
+
+        onAfterInsert: async function (_aktId, NEW, { session }) {
+            if (NEW.aufwandPlan) {
+                const tpId = NEW.teilprojekt[0]._id;
+                const tp = await Teilprojekte.rawCollection().findOne({ _id: tpId }, { session } );
+                const aufwandPlan:number = (tp.aufwandPlan || 0) + NEW.aufwandPlan;
+                
+                await Teilprojekte.updateOne(tpId, { aufwandPlan }, { session });
+            }
+
+            return { status: EnumMethodResult.STATUS_OKAY };
         },
 
         onBeforeUpdate: async function (_aktId, NEW, OLD, { hasChanged }) {
@@ -239,15 +260,13 @@ export const Aktivitaeten = Consulting.createApp<Aktivitaet>({
             return { status: EnumMethodResult.STATUS_OKAY };
         },
 
-        onAfterUpdate: async (_aktId, NEW, OLD, { session, hasChanged }) => {
-            const aufwandPlanChanged = hasChanged('aufwandPlan');
-            
-            if (aufwandPlanChanged) {
+        onAfterUpdate: async (_aktId, NEW, OLD, { session, hasChanged }) => {           
+            if (hasChanged('aufwandPlan')) {
                 const tpId = OLD.teilprojekt[0]._id;
                 const tp = await Teilprojekte.rawCollection().findOne({ _id: tpId }, { session } );
-                const dlGesamt:number = (tp.dlGesamt || 0) + (NEW.aufwandPlan || 0) - (OLD.aufwandPlan || 0);
+                const aufwandPlan:number = (tp.aufwandPlan || 0) + (NEW.aufwandPlan || 0) - (OLD.aufwandPlan || 0);
                 
-                await Teilprojekte.updateOne(tpId, { dlGesamt }, { session });
+                await Teilprojekte.updateOne(tpId, { aufwandPlan }, { session });
             }
 
             return { status: EnumMethodResult.STATUS_OKAY };
@@ -268,9 +287,9 @@ export const Aktivitaeten = Consulting.createApp<Aktivitaet>({
             // das Löschen der Aktivität muss den Gesamtaufwand des Teilprojekts verringern
             const tpId = OLD.teilprojekt[0]._id;
             const tp = await Teilprojekte.rawCollection().findOne({ _id: tpId }, { session } );
-            const dlGesamt:number = (tp.dlGesamt || 0) - (OLD.aufwandPlan || 0);
+            const aufwandPlan:number = (tp.aufwandPlan || 0) - (OLD.aufwandPlan || 0);
             
-            await Teilprojekte.updateOne(tpId, { dlGesamt }, { session });
+            await Teilprojekte.updateOne(tpId, { aufwandPlan }, { session });
 
             return { status: EnumMethodResult.STATUS_OKAY };
         }

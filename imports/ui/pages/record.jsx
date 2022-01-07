@@ -53,12 +53,14 @@ export const Record = ({ params, queryParams, currentUser, mode }) => {
 
     useOnceWhen(() => productStatus == EnumMethodResult.STATUS_OKAY && appStatus == EnumMethodResult.STATUS_OKAY && documentStatus != EnumMethodResult.STATUS_LOADING, () => {
         if (mode === 'NEW') {
-            Meteor.call('__app.' + appId + '.getDefaults', {productId, appId, queryParams}, (err, result) => { 
+            Meteor.call('__app.' + appId + '.getDefaults', {productId, appId, queryParams}, (err, result) => {
+                console.log('Result from Defaults', err, result);
+
                 if (err) {
                     return message.error('Es ist ein unbekannter Systemfehler beim ermitteln der Standardwerte aufgetreten. Bitte wenden Sie sich an den Systemadministrator.' + err.message);
                 } else {
-                    if (result.status == EnumMethodResult.STATUS_OKAY && result.data) {
-                        const defaults = result.data;
+                    if (result.status == EnumMethodResult.STATUS_OKAY && result.defaults) {
+                        const { defaults } = result;
 
                         Object.keys(app.fields).forEach(f => {
                             const field = app.fields[f];
@@ -80,7 +82,7 @@ export const Record = ({ params, queryParams, currentUser, mode }) => {
                         });
 
                         setDefaults(defaults);
-                        recordForm.setFieldsValue(defaults)                        
+                        recordForm.setFieldsValue(defaults)
                     }
                 }
             });

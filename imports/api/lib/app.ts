@@ -12,7 +12,7 @@ import { MethodInvocationFunction } from "./types";
 import { World } from "./world";
 import moment from 'moment'
 
-import { AppData, IActivitiesReplyToProps, IApp, IGenericAppLinkOptionsResult, IGenericDefaultResult, IGenericInsertArguments, IGenericInsertResult, IGenericRemoveArguments, IGenericRemoveResult, IGenericUpdateArguments, IGenericUpdateResult, IGetAppLinkOptionProps, IGetUsersSharedWithResult, ILockResult, IPostProps, UpdateableAppData } from "/imports/api/types/app-types";
+import { AppData, IActivitiesReplyToProps, IApp, IDefaultAppData, IGenericAppLinkOptionsResult, IGenericDefaultResult, IGenericInsertArguments, IGenericInsertResult, IGenericRemoveArguments, IGenericRemoveResult, IGenericUpdateArguments, IGenericUpdateResult, IGetAppLinkOptionProps, IGetUsersSharedWithResult, ILockResult, IPostProps, UpdateableAppData } from "/imports/api/types/app-types";
 import { injectUserData } from "./roles";
 import { Activities } from "./activities";
 import SimpleSchema from "simpl-schema";
@@ -449,7 +449,7 @@ export class App<T> {
     private getDefaults():MethodInvocationFunction {
         const self = this;
 
-        return function(this:{userId:string}, info: any):IGenericDefaultResult {
+        return async function(this:{userId:string}, info: any): Promise<IGenericDefaultResult> {
             new SimpleSchema({
                 productId: { type: String },
                 appId: { type: String },
@@ -458,19 +458,19 @@ export class App<T> {
     
             const { appId, queryParams } = info;
     
-            let data: any = null;
-            if (self.app.methods && isFunction(self.app.methods.defaults)) {
+            let result: IDefaultAppData<T> | null = null;
+            if (self.app.methods && self.app.methods.defaults && isFunction(self.app.methods.defaults)) {
                 try {
-                    data = self.app.methods.defaults && self.app.methods.defaults({queryParams, moment, isServer: true});
+                    result = await self.app.methods.defaults({queryParams, isServer: true}, { moment, session: undefined });
                 } catch (err) {
                     return { 
                         status: EnumMethodResult.STATUS_SERVER_EXCEPTION, 
                         statusText: `Es ist ein Fehler beim ermitteln der Defaultwerte für die App "${appId}" aufgetreten.\n${err.message}`,
-                        data
                     };
                 }
             }
-            return { status: EnumMethodResult.STATUS_OKAY, data};
+            
+            return { status: EnumMethodResult.STATUS_OKAY, defaults: result?.defaults || {} };
         }
     }
     
@@ -861,8 +861,6 @@ export class App<T> {
             } finally {
                 session.endSession();
             }
-        
-            //return self.insert(values, currentUser);
         }
     }
 
@@ -871,6 +869,35 @@ export class App<T> {
      */
     protected async _insert(values: AppData<T>, currentUser: IWorldUser, options?:any): Promise<IGenericInsertResult> {
         const { namesAndMessages } = this.app
+
+        // get Defaults and check the props for missing data
+        // and setup the defaults
+        if (this.app.methods && this.app.methods.defaults) {
+            let result: IDefaultAppData<T>;
+
+            try {
+                result = await this.app.methods.defaults({ NEW: values, isServer: true }, { session: options?.session, moment });
+            } catch(err) {
+                return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: 'Es ist ein Fehler beim ermitteln der Defaultwerte aufgetreten.' + err.message }
+            }
+
+            if (result.status != EnumMethodResult.STATUS_OKAY) {
+                return { status: result.status, statusText: result.statusText }
+            }
+
+            // add the defaults to the values object if the specified prop is not set
+            const defaultPropNames = Object.keys(result.defaults);
+            // check if defaults are defined
+            if (defaultPropNames && defaultPropNames.length > 0) {
+                defaultPropNames.map ( propName => {
+                    const index: keyof T = propName as unknown as keyof T;
+                    // check if prop was not set by the user or input
+                    if (values[index] === null || values[index] === undefined) {
+                        values[index] = <any>result.defaults[index];
+                    }
+                });
+            }
+        }
 
         if (this.app.methods && this.app.methods.onBeforeInsert) {
             let result;

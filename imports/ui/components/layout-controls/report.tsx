@@ -622,12 +622,13 @@ class ReportLiveDataControl extends React.Component<IReportLiveDataControlProps,
         report.data = data;
 
         if (type == 'table') {
-            let cols: Array<any> = [];
+            let cols: Array<any> = columns || [];
 
             if (columns && this.actionColumn) {
                 cols = columns.concat([ this.actionColumn ])
+                console.log('cols', cols);
             }
-
+            
             return <Table 
                 rowKey="_id" 
                 dataSource={data as any } 

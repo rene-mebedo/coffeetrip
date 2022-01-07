@@ -152,7 +152,7 @@ export interface IReportAction {
     /**
      * Funktion, die prüft ob die Action angezeigt werde soll oder nicht
      */
-    visible?: string | (() => string);
+    visible?: string | ((props: IDisableReportActionProps) => boolean);
     
     onExecute: IReportActionExecution;
 }

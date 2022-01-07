@@ -892,6 +892,8 @@ export class App<T> {
             // init the revision with 1 as first version of the document
             // the initial value should always above 0 because of if(_rev)
             values._rev = 1;
+            values._id = (new Mongo.ObjectID()).toHexString();
+            
             // insert data to store
             const result: InsertOneWriteOpResult = await this.rawCollection().insertOne(injectUserData({ currentUser }, values), options);
             docId = result.insertedId;

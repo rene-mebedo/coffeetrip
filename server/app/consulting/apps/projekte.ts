@@ -2,22 +2,41 @@ import { FieldNamesAndMessages } from "/imports/api/lib/helpers";
 import { defaultSecurityLevel } from "../../security";
 import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
 
-import { IAppLink, IAppMethodResult, IGenericApp, TAppLink } from "/imports/api/types/app-types";
+import { IAppLink, IGenericApp, TAppLink } from "/imports/api/types/app-types";
 import { Consulting } from "..";
 import { StatusField } from "../../akademie/apps/seminare";
 import { Adresse, Adressen } from "../../allgemein/apps/adressen";
 import { Projektstati } from "./projektstati";
 import { TeilprojekteByProjekt } from "../reports/teilprojekte-by-projekt";
 import { Teilprojekte } from "./teilprojekte";
+import { ProjekteByUser } from "../reports/projekte-by-user";
 
 export interface Projekt extends IGenericApp {
     kunde: TAppLink
     projektname: string
     zeitraum: Array<Date>
     status: string
-    dlGesamt: number
-    dlVerbraucht: number
-    dlRest: number
+    
+    aufwandPlan: number
+    aufwandIst: number
+    aufwandRest: number
+    
+    /**
+     * geplanter Umsatz
+     */
+    erloesePlan: number
+    /**
+     * Umsatz, der gebucht wurde jedoch noch nicht fakturiert ist
+     */
+    erloeseForecast: number
+    /**
+     * fakturierter Umsatz
+     */
+    erloeseIst: number
+    /**
+     * noch zu fakturierender Umsatz
+     */
+    erloeseRest: number
 }
 
 
@@ -97,26 +116,66 @@ export const Projekte = Consulting.createApp<Projekt>({
 
         status: StatusField,
         
-        dlGesamt: {
+        aufwandPlan: {
             type: EnumFieldTypes.ftInteger,
             rules: [
                 { required: true, message: 'Bitte geben Sie den Projektaufwand (Gesamt) an.' },
             ],
-            ...FieldNamesAndMessages('der', 'Projektaufwand', 'die', 'Projektaufwände', { onUpdate: 'den Projektaufwand' } ),
+            ...FieldNamesAndMessages('der', 'Projektaufwand (Plan)', 'die', 'Projektaufwände (Plan)', { onUpdate: 'den Projektaufwand (Plan)' } ),
             ...defaultSecurityLevel
         },
         
-        dlVerbraucht: {
+        aufwandIst: {
             type: EnumFieldTypes.ftInteger,
             rules: [ ],
-            ...FieldNamesAndMessages('der', 'verbrauchte Projektaufwand', 'die', 'verbrauchten Projektaufwände', { onUpdate: 'den Projektaufwand (Verbrauch)' } ),
+            ...FieldNamesAndMessages('der', 'Projektaufwand (Ist)', 'die', 'Projektaufwände (Ist)', { onUpdate: 'den Projektaufwand (Ist)' } ),
             ...defaultSecurityLevel
         },
 
-        dlRest: {
+        aufwandRest: {
             type: EnumFieldTypes.ftInteger,
             rules: [ ],
-            ...FieldNamesAndMessages('der', 'verbleibende Projektaufwand', 'die', 'verbleibenden Projektaufwände', { onUpdate: 'den Projektaufwand (Rest)' } ),
+            ...FieldNamesAndMessages('der', 'Projektaufwand (Rest)', 'die', 'Projektaufwände (Rest)', { onUpdate: 'den Projektaufwand (Rest)' } ),
+            ...defaultSecurityLevel
+        },
+
+        erloesePlan: {
+            type: EnumFieldTypes.ftInteger,
+            rules: [ 
+                { min: 0, message: 'Der geplante Erlös muss immer größer oder gleich 0,00 sein.' },
+                { required: true, message: 'Bitte geben Sie den geplanten Erlös an.' },
+            ],
+            ...FieldNamesAndMessages('der', 'Erlös (Plan)', 'die', 'Erlöse (Plan)', { onUpdate: 'den Erlös (Plan)' } ),
+            ...defaultSecurityLevel
+        },
+
+        erloeseIst: {
+            type: EnumFieldTypes.ftInteger,
+            rules: [ 
+                { min: 0, message: 'Der Erlös muss immer größer oder gleich 0,00 sein.' },
+                { required: true, message: 'Bitte geben Sie den Erlös an.' },
+            ],
+            ...FieldNamesAndMessages('der', 'Erlös (Ist)', 'die', 'Erlöse (Ist)', { onUpdate: 'den Erlös (Ist)' } ),
+            ...defaultSecurityLevel
+        },
+
+        erloeseForecast: {
+            type: EnumFieldTypes.ftInteger,
+            rules: [ 
+                { min: 0, message: 'Der Erlös-Forecast muss immer größer oder gleich 0,00 sein.' },
+                { required: true, message: 'Bitte geben Sie den Erlös (Forecast) an.' },
+            ],
+            ...FieldNamesAndMessages('der', 'Erlös (Forecast)', 'die', 'Erlöse (Forecast)', { onUpdate: 'den Erlös (Forecast)' } ),
+            ...defaultSecurityLevel
+        },
+
+        erloeseRest: {
+            type: EnumFieldTypes.ftInteger,
+            rules: [ 
+                { min: 0, message: 'Der restliche Erlös muss immer größer oder gleich 0,00 sein.' },
+                { required: true, message: 'Bitte geben Sie den verbleibenden Erlös an.' },
+            ],
+            ...FieldNamesAndMessages('der', 'Erlös (Rest)', 'die', 'Erlöse (Rest)', { onUpdate: 'den Erlös (Rest)' } ),
             ...defaultSecurityLevel
         }
     },
@@ -129,11 +188,43 @@ export const Projekte = Consulting.createApp<Projekt>({
             visibleBy: ['EVERYBODY'],
             
             elements: [
-                { field: 'title', controlType: EnumControltypes.ctStringInput },
-                { field: 'description', title: 'Beschreibung', controlType: EnumControltypes.ctStringInput },
-                { field: 'kunde', controlType: EnumControltypes.ctSingleModuleOption },
-                { field: 'zeitraum', controlType: EnumControltypes.ctDatespanInput },
-                { field: 'status', controlType: EnumControltypes.ctOptionInput, values: Projektstati },
+                { controlType: EnumControltypes.ctColumns, columns: [
+                    { columnDetails: { xs:24, sm:24, md:24, lg:18, xl:16, xxl:16 }, elements: [
+                        { field: 'title', controlType: EnumControltypes.ctStringInput },
+                        { field: 'description', title: 'Beschreibung', controlType: EnumControltypes.ctStringInput },
+                        { field: 'kunde', controlType: EnumControltypes.ctSingleModuleOption },
+                        { field: 'zeitraum', controlType: EnumControltypes.ctDatespanInput },
+                        { field: 'status', controlType: EnumControltypes.ctOptionInput, values: Projektstati },
+                    ]},
+                    { columnDetails: { xs:24, sm:24, md:24, lg:6, xl:8, xxl:8 }, elements: [
+                        { controlType: EnumControltypes.ctColumns, columns: [
+                            { columnDetails: { xs:24, sm:12, md:12, lg: 12, xl:12, xxl:12 }, elements: [
+                                { field: 'erloesePlan', title: 'Projekterlöse (Plan)', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-dollar-sign'},
+                            ]},
+                            { columnDetails: { xs:24, sm:12, md:12, lg: 12, xl:12, xxl:12 }, elements: [
+                                { field: 'erloeseIst', title: 'Ist', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-file-invoice-dollar'},
+                            ]},
+                            { columnDetails: { xs:24, sm:12, md:12, lg: 12, xl:12, xxl:12 }, elements: [
+                                { field: 'erloeseForecast', title: 'Forecast', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-funnel-dollar'},
+                            ]},
+                            { columnDetails: { xs:24, sm:12, md:12, lg: 12, xl:12, xxl:12 }, elements: [
+                                { field: 'erloeseRest', title: 'Rest', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-search-dollar' },
+                            ]}
+                        ]},
+                        { controlType: EnumControltypes.ctColumns, columns: [
+                            { columnDetails: { xs:24, sm:12, md:12, lg: 12 }, elements: [
+                                { field: 'aufwandPlan', title: 'Projektaufwand', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-list'},
+                            ]},
+                            { columnDetails: { xs:24, sm:12, md:12, lg: 12 }, elements: [
+                                { field: 'aufwandIst', title: 'Ist', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-tasks'},
+                            ]},
+                            { columnDetails: { push:12, xs:24, sm:12, md:12  }, elements: [
+                                { field: 'aufwandRest', title: 'Rest', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-list-ul' },
+                            ]}
+                        ]}
+                    ]}
+                ]},
+
                 { controlType: EnumControltypes.ctReport, reportId: TeilprojekteByProjekt.reportId }
             ]
         },
@@ -158,10 +249,8 @@ export const Projekte = Consulting.createApp<Projekt>({
             return {}
         },
 
-        onAfterUpdate: async (projektId, NEW, OLD, session): Promise<IAppMethodResult> => {    
-            const statusChanged = NEW.status !== OLD.status;
-
-            if (statusChanged) {
+        onAfterUpdate: async function (projektId, NEW, _OLD, { session, hasChanged }) {    
+            if (hasChanged('status')) {
                 // soll das Projekt abgesagt werden, so muss geprüft werden, ob es nicht schon
                 // Einzelleistungen bestätigt oder abgerechnet wurden. In diesem Fall
                 // kann das Gesamtprojekt nicht mehr abgesagt werden.
@@ -194,7 +283,11 @@ export const Projekte = Consulting.createApp<Projekt>({
     dashboards: {
         default: { 
             rows: [
-
+                {
+                    elements: [
+                        { _id:'projekte-by-user', width: { xs: 24, sm:24, md:12 },  type: 'report', details: { type: 'table', reportId: ProjekteByUser.reportId, document: { status: ['geplant', 'bestätigt']} } },
+                    ]
+                }
             ]
         },
 

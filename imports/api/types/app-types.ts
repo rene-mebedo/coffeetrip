@@ -4,6 +4,7 @@ import { IGenericDocument } from "../lib/core";
 import { App } from "../lib/app";
 //import { Report } from "../lib/report";
 import { ColProps } from "antd/lib/grid";
+import { Rule } from "antd/lib/form";
 
 export interface IPostProps {
     docId: string
@@ -64,7 +65,7 @@ export interface IAutoValueProps<T> {
 export interface IAppField<T> {
     title?: string
     type: EnumFieldTypes,
-    rules: Array<{}>,
+    rules: Array<Rule>,
     autoValue?: (props:IAutoValueProps<T>) => any,
     appLink?: IAppLink<any>,
 
@@ -128,7 +129,7 @@ export interface IAppLayoutElementDivider<T> extends IGenericAppLayoutElement<T>
 export interface IAppLayoutElementColumns<T> extends IGenericAppLayoutElement<T> {
     controlType: EnumControltypes.ctColumns;
     columns: Array<{
-        columnDetails: {[key:string]: any}
+        columnDetails: ColProps & React.RefAttributes<HTMLDivElement>
         elements: Array<TAppLayoutElement<T>>
     }>
 }

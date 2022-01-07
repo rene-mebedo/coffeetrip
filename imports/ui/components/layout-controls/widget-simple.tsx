@@ -17,8 +17,7 @@ export const WidgetSimple = (props: IGenericControlProps) => {
     const {mode, document, defaults} = props;
 
     const doc = mode == EnumDocumentModes.NEW ? defaults : document;
-    const value = doc[elem.field] || '?';
-    console.log(props.document);
+    const value = (doc || {})[elem.field] || '?';
 
     return (        
         <div onClick={undefined} style={{color: color, cursor: null ? 'pointer':'default'}} >

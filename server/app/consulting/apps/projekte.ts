@@ -282,7 +282,7 @@ export const Projekte = Consulting.createApp<Projekt>({
                 // soll das Projekt abgesagt werden, so muss geprüft werden, ob es nicht schon
                 // Einzelleistungen bestätigt oder abgerechnet wurden. In diesem Fall
                 // kann das Gesamtprojekt nicht mehr abgesagt werden.
-                const tps = await Teilprojekte.rawCollection().find({ 'projekt._id' : projektId }, { session }).toArray();
+                const tps = await Teilprojekte.raw().find({ 'projekt._id' : projektId }, { session }).toArray();
 
                 let i:number, max:number=tps.length;
                 for (i = 0; i < max; i++) {

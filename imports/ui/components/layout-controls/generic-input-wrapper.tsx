@@ -9,6 +9,7 @@ import { EnumDocumentModes } from '/imports/api/consts';
 import { useWhenChanged } from '/imports/api/lib/react-hooks';
 import { getLabel } from '../app-layout';
 import { IApp, TAppLayoutElement } from '/imports/api/types/app-types';
+import { IWorldUser } from '/imports/api/types/world';
 
 export type IMethodOnValuesChange = (
     callback: (
@@ -23,10 +24,10 @@ export interface IGenericControlProps {
     app: IApp<any>,
     mode: EnumDocumentModes,
     defaults: IGenericDocument,
-    record: IGenericDocument,
     document: IGenericDocument,
     children?: JSX.Element,
     onValuesChange: IMethodOnValuesChange;
+    currentUser: IWorldUser
 }
 
 export const GenericInputWrapper = (props: IGenericControlProps) : JSX.Element => {

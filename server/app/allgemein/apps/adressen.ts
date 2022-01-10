@@ -226,7 +226,7 @@ export const Adressen = Allgemein.createApp<Adresse>({
         },
     },
 });
-
+/*
 const Adr = getAppStore('adressen');
 const AdressenCounts = getAppStore('adressen.counts');
 
@@ -253,4 +253,4 @@ Kundenarten.forEach( (k) => {
     } else {
         AdressenCounts.update(kid, { $set: { ...doc }})
     }
-});
+});*/

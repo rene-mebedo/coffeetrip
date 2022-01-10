@@ -237,7 +237,7 @@ export const Aktivitaeten = Consulting.createApp<Aktivitaet>({
         onAfterInsert: async function (_aktId, NEW, { session }) {
             if (NEW.aufwandPlan) {
                 const tpId = NEW.teilprojekt[0]._id;
-                const tp = await Teilprojekte.rawCollection().findOne({ _id: tpId }, { session } );
+                const tp = await Teilprojekte.raw().findOne({ _id: tpId }, { session } );
                 const aufwandPlan:number = (tp.aufwandPlan || 0) + NEW.aufwandPlan;
                 
                 await Teilprojekte.updateOne(tpId, { aufwandPlan }, { session });
@@ -263,7 +263,7 @@ export const Aktivitaeten = Consulting.createApp<Aktivitaet>({
         onAfterUpdate: async (_aktId, NEW, OLD, { session, hasChanged }) => {           
             if (hasChanged('aufwandPlan')) {
                 const tpId = OLD.teilprojekt[0]._id;
-                const tp = await Teilprojekte.rawCollection().findOne({ _id: tpId }, { session } );
+                const tp = await Teilprojekte.raw().findOne({ _id: tpId }, { session } );
                 const aufwandPlan:number = (tp.aufwandPlan || 0) + (NEW.aufwandPlan || 0) - (OLD.aufwandPlan || 0);
                 
                 await Teilprojekte.updateOne(tpId, { aufwandPlan }, { session });
@@ -286,7 +286,7 @@ export const Aktivitaeten = Consulting.createApp<Aktivitaet>({
         onAfterRemove: async function (OLD, { session }) {
             // das Löschen der Aktivität muss den Gesamtaufwand des Teilprojekts verringern
             const tpId = OLD.teilprojekt[0]._id;
-            const tp = await Teilprojekte.rawCollection().findOne({ _id: tpId }, { session } );
+            const tp = await Teilprojekte.raw().findOne({ _id: tpId }, { session } );
             const aufwandPlan:number = (tp.aufwandPlan || 0) - (OLD.aufwandPlan || 0);
             
             await Teilprojekte.updateOne(tpId, { aufwandPlan }, { session });

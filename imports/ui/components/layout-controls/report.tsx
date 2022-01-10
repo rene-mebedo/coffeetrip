@@ -47,6 +47,11 @@ interface IReportWithData extends IReport<any,any> {
 }
 
 interface IReportControlProps {
+    /**
+     * Report-Titel. Wird dieser Titel nicht angegeben, so wird der eigentliche
+     * Titel des Reports verwandt
+     */
+    title?: string,
     reportId: string,
     defaults?: AppData<any>,
     document?: AppData<any>,
@@ -84,7 +89,6 @@ export class ReportControl extends React.Component<IReportControlProps, IReportC
         const { reportId, environment } = this.props;
         
         this.unmounted = false;
-        console.log('Report did mount');
         Meteor.call('__reportData.getReport', reportId, (err: Meteor.Error, result: IGetReportResult) => {
         
             if (err) {
@@ -137,7 +141,7 @@ export class ReportControl extends React.Component<IReportControlProps, IReportC
 
     render() {
         const { loading, report } = this.state;
-        const { currentUser, mode, pageStyle = false } = this.props;
+        const { title, currentUser, mode, pageStyle = false } = this.props;
 
         if (loading || !report) return <Skeleton />;
 
@@ -169,7 +173,7 @@ export class ReportControl extends React.Component<IReportControlProps, IReportC
 
                         <Affix className="mbac-affix-style-bottom" offsetTop={64}>
                             <PageHeader
-                                title={<span><i className={report?.icon} style={{fontSize:32, marginRight:16 }}/>{report?.title}</span>}
+                                title={<span><i className={report?.icon} style={{fontSize:32, marginRight:16 }}/>{title || report?.title}</span>}
                                 subTitle={<span style={{marginTop:8, display:'flex'}}>{report?.description}</span>}
                                 //tags={<Tag color="blue">Running</Tag>}
                                 extra={ report.actions && <ReportGeneralActions report={report} reportParams={reportParams} /> }
@@ -626,7 +630,6 @@ class ReportLiveDataControl extends React.Component<IReportLiveDataControlProps,
 
             if (columns && this.actionColumn) {
                 cols = columns.concat([ this.actionColumn ])
-                console.log('cols', cols);
             }
             
             return <Table 

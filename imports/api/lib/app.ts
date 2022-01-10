@@ -1,7 +1,20 @@
 import { Meteor, Subscription } from "meteor/meteor";
 import { check } from "meteor/check";
 import { Mongo } from "meteor/mongo";
-import { MongoInternals, InsertOneWriteOpResult, UpdateWriteOpResult, WriteOpResult } from 'meteor/mongo';
+//import { MongoInternals, InsertOneWriteOpResult, UpdateWriteOpResult, WriteOpResult } from 'meteor/mongo';
+import * as SuperMongo from "meteor/mongo";
+const { MongoInternals } = SuperMongo as unknown as any;
+
+export interface InsertOneWriteOpResult {
+    insertedId: string
+}
+export interface UpdateWriteOpResult {
+    modifiedCount: number
+}
+export interface WriteOpResult {
+    result: { ok: number }
+}
+
 
 import { EnumMethodResult } from "../consts";
 import { IMethodStatus, IWorldUser } from "../types/world";
@@ -331,7 +344,7 @@ export class App<T> {
         
             if (!currentUser)
                 return this.ready();
-        
+            
             return self.collection.find({
                 $and: [
                     { _id: docId },
@@ -816,7 +829,6 @@ export class App<T> {
     }
 
     private insertDocument():MethodInvocationFunction {
-        //const Products = this.productCollection;
         const self = this;
 
         return async function(this:{userId:string}, data:IGenericInsertArguments<T>):Promise<IGenericInsertResult> {            
@@ -922,7 +934,7 @@ export class App<T> {
             values._id = (new Mongo.ObjectID()).toHexString();
             
             // insert data to store
-            const result: InsertOneWriteOpResult = await this.rawCollection().insertOne(injectUserData({ currentUser }, values), options);
+            const result: InsertOneWriteOpResult = await this.raw().insertOne(injectUserData({ currentUser }, values), options) as unknown as any;
             docId = result.insertedId;
             
             // Insert into activities log
@@ -1071,7 +1083,7 @@ export class App<T> {
             values._rev = oldValues._rev + 1;
 
             // update data to store
-            const updateResult: UpdateWriteOpResult = await this.collection.rawCollection().updateOne({_id:oldValues._id}, { $set: values }, options);
+            const updateResult: UpdateWriteOpResult = await this.collection.rawCollection().updateOne({_id:oldValues._id}, { $set: values }, options) as unknown as any;
             affectedDocs = updateResult.modifiedCount;
 
             // Insert into activities log
@@ -1160,7 +1172,7 @@ export class App<T> {
     /**
      * Remove a document for this app
     */
-     protected async _remove(docId: string, currentUser: IWorldUser, options?:any): Promise<IGenericRemoveResult> {
+    protected async _remove(docId: string, currentUser: IWorldUser, options?:any): Promise<IGenericRemoveResult> {
         const oldValues = <AppData<T>> await this.collection.rawCollection().findOne({
             $and: [
                 { _id: docId },
@@ -1203,7 +1215,7 @@ export class App<T> {
 
         try {
             // update data to store
-            const removeResult: WriteOpResult = await this.collection.rawCollection().remove({_id:oldValues._id}, options);
+            const removeResult: WriteOpResult = await this.collection.rawCollection().remove({_id:oldValues._id}, options) as unknown as any;
             //console.log('Remove result:', removeResult);
             affectedDocs = removeResult.result && removeResult.result.ok;
 
@@ -1251,7 +1263,7 @@ export class App<T> {
         }
     }
 
-    public rawCollection() {
+    public raw() {
         return this.collection.rawCollection();
     }
 
@@ -1269,6 +1281,19 @@ export class App<T> {
     }
 
     /**
+     * Inserts the given document
+     * 
+     * @param selector currently a specific ID (string value)
+     * @param values values as object to be updated
+     * @returns IGenericUpdateResult
+     */
+     public async insertOne(values: AppData<T>, options?:any): Promise<IGenericUpdateResult> {
+        const currentUser = this.getCurrentUser();
+
+        return await this._insert(values, currentUser, options);
+    }
+
+    /**
      * Updates the given document by ID
      * 
      * @param selector currently a specific ID (string value)
@@ -1279,6 +1304,19 @@ export class App<T> {
         const currentUser = this.getCurrentUser();
 
         return await this._update(id, values, currentUser, options);
+    }
+
+    /**
+     * Removes the given document by ID
+     * 
+     * @param id specific ID of document (string value)
+     * @param options MONGO options like session
+     * @returns IGenericRemoveResult
+     */
+     public async removeOne(id: string, options?:any): Promise<IGenericRemoveResult> {
+        const currentUser = this.getCurrentUser();
+
+        return await this._remove(id, currentUser, options);
     }
 
     /**

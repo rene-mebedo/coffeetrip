@@ -361,6 +361,10 @@ export interface IGenericApp {
     description: string;
 }
 
+export type TAppFields<T> = {
+    [key in keyof T]: IAppField<T>
+}
+
 export interface IApp<T, U = keyof T> {
     _id?: string,
     productId?: string,
@@ -390,10 +394,7 @@ export interface IApp<T, U = keyof T> {
         }
     },
 
-    fields: {
-        //[key: string]: IAppField
-        [key in keyof T]: IAppField<T>
-    },
+    fields: TAppFields<T>,
 
     layouts: {
         [key: string]: IAppLayout<U>

@@ -7,7 +7,7 @@ import { IAppLayoutElementDivider } from '/imports/api/types/app-types';
 
 
 export const DividerControl = (props: IGenericControlProps) => {
-    const elem: IAppLayoutElementDivider = props.elem as IAppLayoutElementDivider;
+    const elem: IAppLayoutElementDivider<any> = props.elem as IAppLayoutElementDivider<any>;
 
     return (
         <Divider orientation={elem.orientation || 'left'} >{elem.title}</Divider>

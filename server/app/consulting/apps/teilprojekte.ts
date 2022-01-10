@@ -98,9 +98,9 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
                 linkable: false
             },
             rules: [
-                { required: true, message: 'Bitte geben Sie den Kunden an.' },
+                { required: true, message: 'Bitte geben Sie das zugehörige Projekt an.' },
             ],
-            ...FieldNamesAndMessages('der', 'Kunde', 'die', 'Kunden'),
+            ...FieldNamesAndMessages('das', 'Projekt', 'die', 'Projekte'),
             ...defaultSecurityLevel
         },
 
@@ -269,7 +269,7 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
             }
             
             if (hasChanged('status')) {
-                if ( OLD.status = 'abgerechnet' ) {
+                if ( OLD.status == 'abgerechnet' ) {
                     return { status: EnumMethodResult.STATUS_ABORT, statusText: `Das Teilprojekt "${OLD.title}" kann nicht abgesagt werden, da es bereits den Status "${OLD.status}" hat und Rechnungen hiezu existieren.` }
                 }
 
@@ -285,7 +285,7 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
             if (hasChanged('status')) {
                 // wenn das Teilprojekt den Status verändert, soll dieser neue Status auch auf die 
                 // darunterliegenden Aktivitäten übertragen werden
-                const akts = await Aktivitaeten.rawCollection().find({ 'teilprojekt._id' : tpId }, { session }).toArray();
+                const akts = await Aktivitaeten.raw().find({ 'teilprojekt._id' : tpId }, { session }).toArray();
                 
                 let i, max: number;
                 for(i = 0, max = akts.length; i < max; i++) {
@@ -302,9 +302,8 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
             }
 
             if (hasChanged('aufwandPlan')) {
-                console.log('Test aufwandChanged', NEW, OLD)
                 const prjId = OLD.projekt[0]._id;
-                const prj = await Projekte.rawCollection().findOne({ _id: prjId }, { session } );
+                const prj = await Projekte.raw().findOne({ _id: prjId }, { session } );
                 const aufwandPlan:number = (prj.aufwandPlan || 0) + (NEW.aufwandPlan || 0) - (OLD.aufwandPlan || 0);
                 
                 await Projekte.updateOne(prjId, { aufwandPlan }, { session });

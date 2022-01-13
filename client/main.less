@@ -19,14 +19,7 @@
     border-radius: 20px;
     border-right: 2px solid #fff;
 }
-/*
-.active-detail-panel {
-  border: 1px solid orange !important;
-}
-.detail-deleted {
-  filter:blur(2px);
-}
-*/
+
 body {
   background-color: #f1f1f1;
 }
@@ -50,7 +43,14 @@ body {
 }
 
 .ant-page-header {
-  padding: 16px 0;
+    padding: 16px 0;
+}
+
+.ant-table-expanded-row {
+    > td {
+        background-color: #fff !important;
+        padding-left: 64px !important;
+    }
 }
 
 .site-layout-content {
@@ -733,6 +733,23 @@ a[href="https://markerjs.com/"] {
             .note-editable { padding:0; padding-top:4px; background-color: unset !important; }
             .note-statusbar { display: none }
             .note-dropzone { display: none }
+        }
+    }
+}
+
+.mbac-layout-element {
+    &.mbac-input {
+        &.mbac-currency {
+            input {
+                text-align: right;
+            }
+        }
+    }
+
+    &.mbac-spacer {
+        .ant-form-item-control-input-content {
+            display: inline-flex;
+            column-gap: 12px;
         }
     }
 }

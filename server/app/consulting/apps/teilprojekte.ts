@@ -9,6 +9,7 @@ import { Projektstati } from "./projektstati";
 import { Projekt, Projekte } from "./projekte";
 import { Aktivitaeten } from "./aktivitaeten";
 import { AktivitaetenByTeilprojekte } from "../reports/aktivitaeten-by-teilprojekte";
+import { renderSimpleWidgetAufwandMitEinheit } from "./_helpers";
 
 export interface Teilprojekt extends IGenericApp {
     projekt: TAppLink
@@ -17,35 +18,57 @@ export interface Teilprojekt extends IGenericApp {
     status: string
 
     /**
-     * geplanter Gesamtaufwand für das Projekt 
+     * geplanter Gesamtaufwand für das Projekt in Minuten
      **/
-     aufwandPlan: number
-     /**
-      * Ist-Aufwand, der bereits für das Projekt geleistet wurde
-      */
-     aufwandIst: number
-     /**
-      * Gesamtaufwand (verbleibend) für das Projekte
-      */
-     aufwandRest: number
+    aufwandPlanMinuten: number
+    
+    /**
+     * Ist-Aufwand, der bereits für das Projekt geleistet wurde in Minuten
+     */
+    aufwandIstMinuten: number
+    
+    /**
+     * Gesamtaufwand (verbleibend) für das Projekte in Minuten
+     */
+    aufwandRestMinuten: number
      
-     /**
-      * geplanter Umsatz
-      */
-     erloesePlan: number
-     /**
-      * Umsatz, der gebucht wurde jedoch noch nicht fakturiert ist
-      */
-     erloeseForecast: number
-     /**
-      * fakturierter Umsatz
-      */
-     erloeseIst: number
-     /**
-      * noch zu fakturierender Umsatz
-      */
-     erloeseRest: number
- }
+    /**
+     * geplanter Umsatz
+     */
+    erloesePlan: number
+    
+    /**
+     * Umsatz, der gebucht wurde jedoch noch nicht fakturiert ist
+     */
+    erloeseForecast: number
+    
+    /**
+     * fakturierter Umsatz
+     */
+    erloeseIst: number
+    
+    /**
+     * noch zu fakturierender Umsatz
+     */
+    erloeseRest: number
+
+    /**
+     * Definition der Projektstunden je Beratungstag
+     * Diese muss immer für die Berechnung der Tage Plan, Ist und Rest
+     * angewandt werden
+     */
+    stundenProTag: number
+
+    /**
+     * Anzeigeeinheit in der die Aufwände in der Anwendung dargestellt werden
+     */
+    anzeigeeinheit: string
+    /**
+     * Singular, Plural der Anzeigeeinheit zur Darstellung und der Faktor
+     * zur Umrechnung der Aufände auf Minutenbasis zur Anzeigeeinheit
+     */
+    anzeigeeinheitDetails: { singular: string, plural: string, faktor: number, precision: number }
+}
 
 
 export const Teilprojekte = Consulting.createApp<Teilprojekt>({
@@ -91,12 +114,12 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
 
         projekt: {
             type: EnumFieldTypes.ftAppLink,
-            appLink: < IAppLink<Projekt> > {
+            appLink: {
                 app: 'projekte', //Projekte,
                 hasDescription: true,                
                 hasImage: false,
-                linkable: false
-            },
+                linkable: true
+            } as IAppLink<Projekt>,
             rules: [
                 { required: true, message: 'Bitte geben Sie das zugehörige Projekt an.' },
             ],
@@ -124,7 +147,7 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
 
         status: StatusField,
 
-        aufwandPlan: {
+        aufwandPlanMinuten: {
             type: EnumFieldTypes.ftInteger,
             rules: [
                 { required: true, message: 'Bitte geben Sie den Aufwand (Plan) an.' },
@@ -133,14 +156,14 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
             ...defaultSecurityLevel
         },
         
-        aufwandIst: {
+        aufwandIstMinuten: {
             type: EnumFieldTypes.ftInteger,
             rules: [ ],
             ...FieldNamesAndMessages('der', 'Aufwand (Ist)', 'die', 'Aufwände (Ist)', { onUpdate: 'den Aufwand (Ist)' } ),
             ...defaultSecurityLevel
         },
 
-        aufwandRest: {
+        aufwandRestMinuten: {
             type: EnumFieldTypes.ftInteger,
             rules: [ ],
             ...FieldNamesAndMessages('der', 'Aufwand (Rest)', 'die', 'Aufwände (Rest)', { onUpdate: 'den Aufwand (Rest)' } ),
@@ -185,6 +208,34 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
             ],
             ...FieldNamesAndMessages('der', 'Erlös (Rest)', 'die', 'Erlöse (Rest)', { onUpdate: 'den Erlös (Rest)' } ),
             ...defaultSecurityLevel
+        },
+
+        stundenProTag: {
+            type: EnumFieldTypes.ftInteger,
+            rules: [ 
+                { type:'number', min: 1, message: 'Die minimale Stundenangabe beträgt 1 Stunde.' },
+                { type:'number', max: 10, message: 'Die maximale Stunden je Tag betragen 10 Stunden.' },
+                { required: true, message: 'Bitte geben Sie die Stunden je Beratertag an.' },
+            ],
+            ...FieldNamesAndMessages('die', 'Stunden je Beratertag', 'die', 'Stunden je Beratertag' ),
+            ...defaultSecurityLevel
+        },
+
+        anzeigeeinheit: {
+            type: EnumFieldTypes.ftString,
+            rules: [ 
+                { required: true, message: 'Bitte geben Sie Einheit an, in der die Aufwände angezeigt werden sollen.' },
+            ],
+            ...FieldNamesAndMessages('die', 'Einheit zur Darstellung der Aufwände', 'die', 'Einheiten zur Darstellung der Aufwände' ),
+            ...defaultSecurityLevel
+        },
+        anzeigeeinheitDetails: {
+            type: EnumFieldTypes.ftString,
+            rules: [ 
+                { required: true, message: 'Bitte geben Sie Details zur Anzeigeeinheit an.' },
+            ],
+            ...FieldNamesAndMessages('die', 'Details zur Anzeigeeinheit', 'die', 'Details zur Anzeigeeinheit' ),
+            ...defaultSecurityLevel
         }
 
     },
@@ -204,13 +255,19 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
                 { field: 'status', controlType: EnumControltypes.ctOptionInput, values: Projektstati },
                 { controlType: EnumControltypes.ctColumns, columns: [
                     { columnDetails: { xs:24, sm:24, md:8 }, elements: [
-                        { field: 'aufwandPlan', title: 'Gesamtaufwand', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-list'},
+                        { field: 'aufwandPlanMinuten', title: 'Gesamtaufwand', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-list',
+                            render: renderSimpleWidgetAufwandMitEinheit
+                        },
                     ]},
                     { columnDetails: { xs:24, sm:24, md:8 }, elements: [
-                        { field: 'aufwandIst', title: 'bereits Verbraucht', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-tasks'},
+                        { field: 'aufwandIstMinuten', title: 'bereits Verbraucht', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-tasks',
+                            render: renderSimpleWidgetAufwandMitEinheit
+                        },
                     ]},
                     { columnDetails: { xs:24, sm:24, md:8 }, elements: [
-                        { field: 'aufwandRest', title: 'Rest', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-list-ul' },
+                        { field: 'aufwandRestMinuten', title: 'Rest', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-list-ul',
+                            render: renderSimpleWidgetAufwandMitEinheit
+                        },
                     ]}
                 ]},
                 { controlType: EnumControltypes.ctReport, reportId: AktivitaetenByTeilprojekte.reportId },
@@ -237,9 +294,9 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
             let defaults: DefaultAppData<Teilprojekt> = {
                 status: 'angemeldet',
 
-                aufwandPlan: 0,
-                aufwandIst: 0,
-                aufwandRest: 0,
+                aufwandPlanMinuten: 0,
+                aufwandIstMinuten: 0,
+                aufwandRestMinuten: 0,
                 erloesePlan: 0,
                 erloeseIst: 0,
                 erloeseForecast: 0,
@@ -247,9 +304,11 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
             }
     
             if (queryParams && queryParams.projektId) {                
-                const prj = Projekte.findOne({ _id: queryParams.projektId }, { fields: { _id:1, title:1, description:1 }});
+                const prj = Projekte.findOne({ _id: queryParams.projektId }, { fields: { _id:1, title:1, description:1, anzeigeeinheitDetails: 1 }});
                 if (prj) {
-                    defaults.projekt = [prj];
+                    defaults.projekt = [{_id:prj._id, title: prj.title, description: prj.description, link: `/consulting/projekte/${prj._id}`}];
+                    defaults.anzeigeeinheit = prj.anzeigeeinheit;
+                    defaults.anzeigeeinheitDetails = { ...prj.anzeigeeinheitDetails };
                 }
             }
         
@@ -259,13 +318,30 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
             }
         },
 
+        onBeforeInsert: async function(NEW, { session } ) {
+            const prjId = NEW.projekt[0]._id;
+            const prj = await Projekte.raw().findOne({ _id: prjId }, { session } );
+            if (!prj) {
+                return {
+                    status: EnumMethodResult.STATUS_ABORT,
+                    statustext: `Das Projekt "${NEW.projekt[0].title}" mit der ID "${prjId}" konnte in seiner Beschreibung nicht gefunden werden.`
+                }
+            }
+
+            NEW.stundenProTag = prj.stundenProTag;
+            NEW.anzeigeeinheit = prj.anzeigeeinheit;
+            NEW.anzeigeeinheitDetails = prj.anzeigeeinheitDetails;
+            
+            return { status: EnumMethodResult.STATUS_OKAY };
+        },
+
         onAfterInsert: async function() {
             return { status: EnumMethodResult.STATUS_OKAY };
         },
 
-        onBeforeUpdate: async function(_tpId, NEW, OLD, { hasChanged }) {
-            if (hasChanged('aufwandPlan')) {
-                NEW.aufwandRest = (NEW.aufwandPlan || 0) - (OLD.aufwandIst || 0);
+        onBeforeUpdate: async function(_tpId, NEW, OLD, { hasChanged, currentValue }) {
+            if (hasChanged('aufwandPlanMinuten') || hasChanged('aufwandIstMinuten')) {
+                NEW.aufwandRestMinuten = currentValue('aufwandPlanMinuten') - currentValue('aufwandIstMinuten');
             }
             
             if (hasChanged('status')) {
@@ -282,6 +358,15 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
         },
 
         onAfterUpdate: async function (tpId, NEW, OLD, { session, hasChanged }) {
+            if (hasChanged('stundenProTag')) {
+                // wird die Anzahl der Stunden pro Tag geändert,
+                // so muss die Definition in die einzelne AKT nachgetriggert werden
+                const akts = await Aktivitaeten.raw().find({ 'teilprojekt._id' : tpId }, { session }).toArray();
+                akts.forEach( akt => {
+                    Aktivitaeten.updateOne(akt._id, { stundenProTag: NEW.stundenProTag });
+                });
+            }
+
             if (hasChanged('status')) {
                 // wenn das Teilprojekt den Status verändert, soll dieser neue Status auch auf die 
                 // darunterliegenden Aktivitäten übertragen werden
@@ -301,12 +386,13 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
                 }
             }
 
-            if (hasChanged('aufwandPlan')) {
+            if (hasChanged('aufwandPlanMinuten') || hasChanged('aufwandIstMinuten')) {
                 const prjId = OLD.projekt[0]._id;
                 const prj = await Projekte.raw().findOne({ _id: prjId }, { session } );
-                const aufwandPlan:number = (prj.aufwandPlan || 0) + (NEW.aufwandPlan || 0) - (OLD.aufwandPlan || 0);
-                
-                await Projekte.updateOne(prjId, { aufwandPlan }, { session });
+                const aufwandPlanMinuten:number = (prj.aufwandPlanMinuten || 0) + (NEW.aufwandPlanMinuten || 0) - (OLD.aufwandPlanMinuten || 0);
+                const aufwandIstMinuten:number = (prj.aufwandIstMinuten || 0) + (NEW.aufwandIstMinuten || 0) - (OLD.aufwandIstMinuten || 0);
+
+                await Projekte.updateOne(prjId, { aufwandPlanMinuten, aufwandIstMinuten }, { session });
             }
 
             return { status: EnumMethodResult.STATUS_OKAY };

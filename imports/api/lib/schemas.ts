@@ -398,7 +398,8 @@ export const AppLayoutElementsSchema = new SimpleSchema({
             pluralTitle: { type: String, optional: true },
             color: { type: String, optional: true },
             backgroundColor: { type: String, optional: true },
-            icon: { type: String, optional: true }
+            icon: { type: String, optional: true },
+            options: { type: Object, blackbox: true, optional: true }
         }),
     },
     defaultValue: {
@@ -454,7 +455,10 @@ export const AppLayoutElementsSchema = new SimpleSchema({
         type: 'String', // vertical or horizontal für die Darstellung von Radio Buttons
         optional: true
     },
-
+    render: {
+        type: 'String', // ind. renderfunction zur client-rendering von gewissen Anzeigen z.B. SimpleWidget
+        optional: true
+    }
 });
 
 
@@ -539,6 +543,10 @@ export const ReportSchema = new SimpleSchema({
     description: {
         type: String,
         label: 'Beschreibung'
+    },
+    noHeader: {
+        type: Boolean,
+        optional: true
     },
     icon: {
         type: String,

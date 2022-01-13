@@ -3,7 +3,7 @@ import React from 'react';
 import Card from 'antd/lib/card';
 import Statistic from 'antd/lib/statistic';
 
-import { IGenericControlProps } from "./generic-input-wrapper";
+import { GenericControlWrapper, IGenericControlProps } from "./generic-control-wrapper";
 import { IAppLayoutElementWidgetSimple } from '/imports/api/types/app-types';
 import { EnumDocumentModes } from '/imports/api/consts';
 import { isNumeric } from '/imports/api/lib/basics';
@@ -18,7 +18,7 @@ export const WidgetSimple = (props: IGenericControlProps) => {
     const {mode, document, defaults} = props;
 
     const doc = mode == EnumDocumentModes.NEW ? defaults : document;
-    const value = (doc || {})[elem.field];
+    const value = (doc || {})[elem.field as string];
     let displayValue: string = '';
 
     if (isNumeric(value)) {
@@ -28,24 +28,42 @@ export const WidgetSimple = (props: IGenericControlProps) => {
         displayValue = value || '?';
     }
 
-    return (        
-        <div onClick={undefined} style={{color: color, cursor: null ? 'pointer':'default'}} >
-            <Card style={{borderColor, color, backgroundColor}}
-                //hoverable
-                actions={undefined}
-            >
-                <Card.Meta 
-                    style={{borderColor}}
-                    //avatar={}
-                    title={<span style={{color}}>{elem.title}</span>}
-                />
-                <Statistic
-                    value={displayValue}
-                    prefix={<i style={{marginRight:16}} className={elem.icon} />}
-                    valueStyle={{ color }}
-                />
-            </Card>
-        </div>
+    let renderer = (value: any, _doc: any) => value;
+    if (elem.render) {
+
+        try {
+            renderer = eval(elem.render as unknown as string);
+            //displayValue = renderer(value, doc);
+        } catch (err) {
+            console.log('Fehler beim Rendering für die SimpleWidget-Komponente', err);
+        }
+    }
+    const formatter = (value:any) => {
+        return renderer(value, doc);
+    }
+
+    return (
+        <GenericControlWrapper { ...props } withoutInput className="mbac-widget-simple" >
+            <div onClick={undefined} style={{color: color, cursor: null ? 'pointer':'default'}} >
+                <Card style={{borderColor, color, backgroundColor}}
+                    //hoverable
+                    actions={undefined}
+                >
+                    <Card.Meta 
+                        style={{borderColor}}
+                        //avatar={}
+                        //title={<span style={{color}}>{elem.title}</span>}
+                    />
+                    <Statistic
+                        title={elem.title}
+                        value={displayValue}
+                        formatter={formatter}
+                        prefix={<i style={{marginRight:16}} className={elem.icon} />}
+                        valueStyle={{ color }}
+                    />
+                </Card>
+            </div>
+        </GenericControlWrapper>
     );
 }
 

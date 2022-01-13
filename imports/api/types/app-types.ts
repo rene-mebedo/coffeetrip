@@ -20,9 +20,11 @@ export interface IActivitiesReplyToProps {
 export type TString = string;
 
 export type TAppLink = Array<{
-    _id: string;
-    title: string;
-    description: string;
+    _id: string
+    title: string
+    description: string
+    link?: string
+    imageUrl?: string
 }>
 
 export interface IAppLink<T> {
@@ -33,6 +35,7 @@ export interface IAppLink<T> {
     hasImage: boolean,
     imageUrl?: (doc: AppData<T>) => string
     linkable: boolean
+    link?: (doc: AppData<T>) => string
 }
 
 export interface IGetAppLinkOptionProps {
@@ -85,15 +88,26 @@ export interface IAppField<T> {
     }
 }
 
+export interface IToolExtras {
+    moment: moment.Moment
+}
+
 export interface IEnabledProps {
     changedValues: IGenericDocument,
     allValues: IGenericDocument,
     mode: EnumDocumentModes,
-    moment: moment.Moment
+    tools: IToolExtras
+}
+
+export interface IVisibleProps<T> {
+    changedValues: AppData<T>,
+    allValues: AppData<T>,
+    mode: EnumDocumentModes,
+    tools: IToolExtras
 }
 
 export interface IGenericAppLayoutElement<T> {
-    field?: T,
+    field?: keyof T,
     title?: string,
     /**
      * True, if the title should be surpressed for the layout
@@ -101,6 +115,7 @@ export interface IGenericAppLayoutElement<T> {
     noTitle?: boolean,
     controlType: EnumControltypes,
     enabled?: (props:IEnabledProps) => boolean
+    visible?: (props:IVisibleProps<T>) => boolean
 }
 
 export interface IGoogleMapsLocationProps {
@@ -118,7 +133,8 @@ export interface IAppLayoutElementWidgetSimple<T> extends IGenericAppLayoutEleme
      */
     icon: string
     color?: string
-    backgroundColor?: string
+    backgroundColor?: string,
+    render?: (fieldValue: any, doc: AppData<T>) => number | string | JSX.Element
 }
 
 export interface IAppLayoutElementDivider<T> extends IGenericAppLayoutElement<T> {
@@ -160,24 +176,52 @@ export interface IAppLayoutElementGoogleMap<T> extends IGenericAppLayoutElement<
     }
 }
 
-export type TOptionValues = Array<IOptionInputValue>;
-
-export interface IOptionInputValue {
-    _id: string;
-    title: string;
-    pluralTitle?: string;
-    description?: string;
-    color?: string | number;
-    backgroundColor?: string | number;
+export interface IOptionValue<T> {
+    /**
+     * Specifies the unique ID of the value
+     */
+    _id: T
+    /**
+     * Title of the value to display
+     */
+    title: string
+    /**
+     * Optional title for plural
+     */
+    pluralTitle?: string
+    /**
+     * Some description for the value
+     */
+    description?: string
+    /**
+     * Specifies the color for further use
+     */
+    color?: string | number
+    /**
+     * Specifies the backgroundcolor for some further us
+     */
+    backgroundColor?: string | number
     /**
      * Specifies the fontawesome icon-class eg: "fas fa-building"
      */
-    icon?: string
+    icon?: string,
+    /**
+     * Specifies indivial options for this item
+     */
+    options?: any
 }
+
+export type TOptionValues<T> = Array<IOptionValue<T>>;
 
 export interface IAppLayoutElementInlineCombination<T> extends IGenericAppLayoutElement<T> {
     title: string,
     controlType: EnumControltypes.ctInlineCombination,
+    elements: Array<TAppLayoutElement<T>>;
+}
+
+export interface IAppLayoutElementSpacer<T> extends IGenericAppLayoutElement<T> {
+    title: string,
+    controlType: EnumControltypes.ctSpacer,
     elements: Array<TAppLayoutElement<T>>;
 }
 
@@ -188,7 +232,7 @@ export interface IAppLayoutElementReport<T> extends IGenericAppLayoutElement<T> 
 
 export interface IAppLayoutElementOptionInput<T> extends IGenericAppLayoutElement<T> {
     controlType: EnumControltypes.ctOptionInput,
-    values: TOptionValues,
+    values: TOptionValues<any>,
     direction?: 'horizontal' | 'vertical',
     defaultValue?: string
 }
@@ -197,6 +241,7 @@ export interface IAppLayoutElementGenericInput<T> extends IGenericAppLayoutEleme
     controlType: EnumControltypes.ctStringInput | 
                  EnumControltypes.ctTextInput | 
                  EnumControltypes.ctNumberInput | 
+                 EnumControltypes.ctCurrencyInput | 
                  EnumControltypes.ctDateInput | 
                  EnumControltypes.ctDatespanInput | 
                  EnumControltypes.ctYearInput | 
@@ -211,6 +256,7 @@ export type TAppLayoutElement<T> = IAppLayoutElementReport<T> |
                                 IAppLayoutElementGoogleMap<T> | 
                                 IAppLayoutElementCollapsible<T> |
                                 IAppLayoutElementInlineCombination<T> |
+                                IAppLayoutElementSpacer<T> |
                                 IAppLayoutElementGenericInput<T> |
                                 IAppLayoutElementWidgetSimple<T> |
                                 IAppLayoutElementColumns<T>;
@@ -224,12 +270,7 @@ export interface IAppLayout<T> {
 }
 
 export interface IDefaultAppData<T> extends IAppMethodResult {
-    defaults: DefaultAppData<T>
-}
-
-export interface IDefaultsTriggerExtras {
-    session: any,
-    moment: any
+    defaults?: DefaultAppData<T>
 }
 
 export interface IAppMethodsDefaultProps<T> {
@@ -253,32 +294,48 @@ export interface IAppMethodResult {
     statusText?: string | null,
 }
 
-export interface TInsertTriggerExtras {
-    session: any,
-}
-
-export interface IUpdateTriggerExtras<T> {
-    session: any,
+export interface ITriggerTools<T> {
     /**
      * Returns True if the specified property value has changed,
      * otherwise False
      */
-    hasChanged: (propName: keyof T) => boolean
+     hasChanged: (propName: keyof T) => boolean
+     /**
+      * Returns the current Value of the give Prop
+      * inside the update-trigger
+      */
+     currentValue: (propName: keyof T) => any 
 }
 
-export interface IRemoveTriggerExtras {
+export interface IDefaultsTriggerExtras<T> extends ITriggerTools<T> {
     session: any,
+    moment: any
+}
+
+export interface TInsertTriggerExtras<T> extends ITriggerTools<T> {
+    session: any,
+    moment: any
+}
+
+export interface IUpdateTriggerExtras<T> extends ITriggerTools<T> {
+    session: any,
+    moment: any
+}
+
+export interface IRemoveTriggerExtras<T> extends ITriggerTools<T> {
+    session: any,
+    moment: any
 }
 
 export interface IAppMethods<T> {
-    defaults?: (props: IAppMethodsDefaultProps<T>, triggerExtrags?: IDefaultsTriggerExtras) => Promise<IDefaultAppData<T>>,
+    defaults?: (props: IAppMethodsDefaultProps<T>, triggerExtrags?: IDefaultsTriggerExtras<T>) => Promise<IDefaultAppData<T>>,
 
-    onBeforeInsert?: (values: AppData<T>, triggerExtras: TInsertTriggerExtras) => Promise<IAppMethodResult>,
-    onAfterInsert?: (id: string, values: AppData<T>, triggerExtras: TInsertTriggerExtras) => Promise<IAppMethodResult>,
+    onBeforeInsert?: (values: AppData<T>, triggerExtras: TInsertTriggerExtras<T>) => Promise<IAppMethodResult>,
+    onAfterInsert?: (id: string, values: AppData<T>, triggerExtras: TInsertTriggerExtras<T>) => Promise<IAppMethodResult>,
     onBeforeUpdate?: (id: string, values: UpdateableAppData<T>, oldValues: AppData<T>, triggerExtras: IUpdateTriggerExtras<T>) => Promise<IAppMethodResult>,
     onAfterUpdate?: (id: string, values: UpdateableAppData<T>, oldValues: AppData<T>, triggerExtras: IUpdateTriggerExtras<T>) => Promise<IAppMethodResult>,
-    onBeforeRemove?: (values: AppData<T>, triggerExtras: IRemoveTriggerExtras) => Promise<IAppMethodResult>,
-    onAfterRemove?: (values: AppData<T>, triggerExtras: IRemoveTriggerExtras) => Promise<IAppMethodResult>,
+    onBeforeRemove?: (values: AppData<T>, triggerExtras: IRemoveTriggerExtras<T>) => Promise<IAppMethodResult>,
+    onAfterRemove?: (values: AppData<T>, triggerExtras: IRemoveTriggerExtras<T>) => Promise<IAppMethodResult>,
 }
 
 export interface IAppActions {
@@ -365,7 +422,7 @@ export type TAppFields<T> = {
     [key in keyof T]: IAppField<T>
 }
 
-export interface IApp<T, U = keyof T> {
+export interface IApp<T> {
     _id?: string,
     productId?: string,
 
@@ -397,7 +454,7 @@ export interface IApp<T, U = keyof T> {
     fields: TAppFields<T>,
 
     layouts: {
-        [key: string]: IAppLayout<U>
+        [key: string]: IAppLayout<T> // old U
     },
     actions: {
         [key: string]: IAppActions

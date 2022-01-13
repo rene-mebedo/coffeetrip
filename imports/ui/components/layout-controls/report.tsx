@@ -16,7 +16,7 @@ import Modal from 'antd/lib/modal';
 
 const { confirm } = Modal;
 
-import { IChartData, IReport, IReportAction, IReportActionExecution, IReportDatasourceProps, IRunScriptTools, IWorldUser, TColumnRenderer } from '/imports/api/types/world';
+import { IChartData, IReport, IReportAction, IReportActionExecution, IReportDatasourceProps, IRunScriptTools, TColumnRenderer } from '/imports/api/types/world';
 import { AppData, IGetReportResult } from '/imports/api/types/app-types';
 import { EnumDocumentModes, EnumMethodResult } from '/imports/api/consts';
 
@@ -30,6 +30,7 @@ import Breadcrumb from 'antd/lib/breadcrumb';
 import Affix from 'antd/lib/affix';
 
 import { Bar, Line, Pie } from 'react-chartjs-2';
+import { GenericControlWrapper, IGenericControlProps } from './generic-control-wrapper';
 
 
 // dummyfoo was added to use getAppstore, check, Match and <Tag> in LiveDatasource and Report Actions on the client and server
@@ -46,17 +47,17 @@ interface IReportWithData extends IReport<any,any> {
     data?: AppData<any>
 }
 
-interface IReportControlProps {
+interface IReportControlProps extends IGenericControlProps {
     /**
      * Report-Titel. Wird dieser Titel nicht angegeben, so wird der eigentliche
      * Titel des Reports verwandt
      */
     title?: string,
     reportId: string,
-    defaults?: AppData<any>,
-    document?: AppData<any>,
-    mode: EnumDocumentModes | 'dashboard',
-    currentUser: IWorldUser,
+    //defaults?: AppData<any>,
+    //document?: AppData<any>,
+    mode: EnumDocumentModes, // | 'dashboard',
+    //currentUser: IWorldUser,
     pageStyle?: boolean
     /**
      * Gibt die Umgebung an, an der der Report gerade platziert ist
@@ -140,54 +141,58 @@ export class ReportControl extends React.Component<IReportControlProps, IReportC
 	}
 
     render() {
+        const props = this.props;
+        
+        const { title, pageStyle = false } = props;
         const { loading, report } = this.state;
-        const { title, currentUser, mode, pageStyle = false } = this.props;
 
         if (loading || !report) return <Skeleton />;
 
         const { isStatic, type } = report;
         
         const reportParams: IReportDatasourceProps<any> = {
-            defaults: this.props.defaults,
-            document: this.props.document,
+            defaults: this.props.defaults as AppData<any>,
+            document: this.props.document as AppData<any>,
             mode: this.props.mode, 
             isServer: false,
             currentUser: this.props.currentUser
         }
         
         return (
-            <div className="report-container">
-                { pageStyle
-                    ? <Fragment>
-                        <Breadcrumb>
-                            <Breadcrumb.Item>
-                                <a href="">Home</a>
-                            </Breadcrumb.Item>
-                            <Breadcrumb.Item>
-                                <a href="">Reports</a>
-                            </Breadcrumb.Item>
-                            <Breadcrumb.Item>
-                                {report?.title}
-                            </Breadcrumb.Item>
-                        </Breadcrumb>
+            <GenericControlWrapper { ...props } withoutInput className="mbac-report" >
+                <div className="report-container">
+                    { pageStyle
+                        ? <Fragment>
+                            <Breadcrumb>
+                                <Breadcrumb.Item>
+                                    <a href="">Home</a>
+                                </Breadcrumb.Item>
+                                <Breadcrumb.Item>
+                                    <a href="">Reports</a>
+                                </Breadcrumb.Item>
+                                <Breadcrumb.Item>
+                                    {report?.title}
+                                </Breadcrumb.Item>
+                            </Breadcrumb>
 
-                        <Affix className="mbac-affix-style-bottom" offsetTop={64}>
-                            <PageHeader
-                                title={<span><i className={report?.icon} style={{fontSize:32, marginRight:16 }}/>{title || report?.title}</span>}
-                                subTitle={<span style={{marginTop:8, display:'flex'}}>{report?.description}</span>}
-                                //tags={<Tag color="blue">Running</Tag>}
-                                extra={ report.actions && <ReportGeneralActions report={report} reportParams={reportParams} /> }
-                            />
-                        </Affix>
-                    </Fragment>
-                    : null
-                }
-                { type == 'table' && report.actions && !pageStyle ? <ReportGeneralActions report={report} reportParams={reportParams} /> : null }
-                { isStatic
-                    ? <ReportStatic report={report} reportParams={reportParams} mode={mode as EnumDocumentModes} currentUser={currentUser} />
-                    : <ReportLiveData report={report} reportParams={reportParams} mode={mode as EnumDocumentModes} currentUser={currentUser} />
-                }
-            </div>
+                            <Affix className="mbac-affix-style-bottom" offsetTop={64}>
+                                <PageHeader
+                                    title={<span><i className={report?.icon} style={{fontSize:32, marginRight:16 }}/>{title || report?.title}</span>}
+                                    subTitle={<span style={{marginTop:8, display:'flex'}}>{report?.description}</span>}
+                                    //tags={<Tag color="blue">Running</Tag>}
+                                    extra={ report.actions && <ReportGeneralActions report={report} reportParams={reportParams} /> }
+                                />
+                            </Affix>
+                        </Fragment>
+                        : null
+                    }
+                    { type == 'table' && report.actions && !pageStyle ? <ReportGeneralActions report={report} reportParams={reportParams} /> : null }
+                    { isStatic
+                        ? <ReportStatic { ...props } report={report} reportParams={reportParams} />
+                        : <ReportLiveData { ...props } report={report} reportParams={reportParams} />
+                    }
+                </div>
+            </GenericControlWrapper>
         )
     }
 }
@@ -354,11 +359,11 @@ const ReportAction = (props: IReportActionProps) => {
 }
 
 
-interface IReportStaticProps {
+interface IReportStaticProps extends IGenericControlProps {
     report: IReportWithData
     reportParams: any
-    mode: EnumDocumentModes
-    currentUser: IWorldUser
+    //mode: EnumDocumentModes
+    //currentUser: IWorldUser
 }
 
 interface IReportStaticState {
@@ -455,7 +460,7 @@ export class ReportStatic extends React.Component<IReportStaticProps, IReportSta
 	}
 
     render() {
-        const { type, columns, title, nestedReportId } = this.props.report;
+        const { type, columns, title, nestedReportId, noHeader } = this.props.report;
         const { data, loading } = this.state;
 
         if (loading) return <Skeleton />;
@@ -472,7 +477,7 @@ export class ReportStatic extends React.Component<IReportStaticProps, IReportSta
                 dataSource={data as any } 
                 pagination={false} 
                 columns={cols as any } 
-                title={() => 
+                title={noHeader ? undefined : () => 
                     <Space>
                         <span>{title}</span>
                         <Tag color="green">realtime</Tag>
@@ -483,7 +488,15 @@ export class ReportStatic extends React.Component<IReportStaticProps, IReportSta
                     expandedRowRender: (record:any) => { 
                         return (
                             <div style={{ margin: 0 }}>
-                                <ReportControl environment='Document' reportId={nestedReportId} mode={this.props.mode} document={record} currentUser={this.props.currentUser}/>
+                                <ReportControl 
+                                    environment='Document'
+                                    reportId={nestedReportId}
+                                    mode={this.props.mode}
+                                    document={record}
+                                    defaults={this.props.defaults}
+                                    app={this.props.app}
+                                    onValuesChange={this.props.onValuesChange}
+                                    currentUser={this.props.currentUser} elem={this.props.elem}/>
                             </div>
                         )
                     },
@@ -557,13 +570,13 @@ export class ReportStatic extends React.Component<IReportStaticProps, IReportSta
 }
 
 
-interface IReportLiveDataControlProps {
+interface IReportLiveDataControlProps extends IGenericControlProps {
     report: IReportWithData
     reportParams: any
-    mode: EnumDocumentModes
+    //mode: EnumDocumentModes
     loading?: boolean
     data?: AppData<any>
-    currentUser:IWorldUser
+    //currentUser:IWorldUser
 }
 
 interface IReportLiveDataControlState {
@@ -620,8 +633,9 @@ class ReportLiveDataControl extends React.Component<IReportLiveDataControlProps,
     }
 
     render() {
-        const { currentUser, data, loading: _loading, report } = this.props;
-        const { type, columns, title, nestedReportId } = report;
+        const props = this.props;
+        const { data, report } = props;
+        const { type, columns, title, noHeader, nestedReportId } = report;
 
         report.data = data;
 
@@ -632,12 +646,12 @@ class ReportLiveDataControl extends React.Component<IReportLiveDataControlProps,
                 cols = columns.concat([ this.actionColumn ])
             }
             
-            return <Table 
+            return <Table
                 rowKey="_id" 
                 dataSource={data as any } 
                 pagination={false} 
                 columns={ cols } 
-                title={() => 
+                title={noHeader ? undefined : () => 
                     <Space>
                         <span>{title}</span>
                         <Tag color="green">realtime</Tag>
@@ -648,7 +662,7 @@ class ReportLiveDataControl extends React.Component<IReportLiveDataControlProps,
                     expandedRowRender: (record:any) => { 
                         return (
                             <div style={{ margin: 0 }}>
-                                <ReportControl environment='Document' reportId={nestedReportId} mode={this.props.mode} document={record} currentUser={currentUser} />
+                                <ReportControl {...props} environment='Document' reportId={nestedReportId} document={record} />
                             </div>
                         )
                     },

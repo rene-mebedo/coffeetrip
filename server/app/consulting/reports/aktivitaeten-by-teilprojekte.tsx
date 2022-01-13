@@ -37,6 +37,7 @@ export const AktivitaetenByTeilprojekte = MebedoWorld.createReport<Aktivitaet, T
     title: 'Aktivitäten',
     description: 'Zeigt alle Aktivitäten für das aktuelle Teilprojekt an.',
 
+    noHeader: true,
     /*sharedWith: [],
     sharedWithRoles: ['EVERYBODY'],*/
 
@@ -120,7 +121,7 @@ export const AktivitaetenByTeilprojekte = MebedoWorld.createReport<Aktivitaet, T
     ],
 
     actions: [
-        {
+        /*{
             title: 'Neu',
             inGeneral: true,
             type: 'primary',
@@ -138,7 +139,7 @@ export const AktivitaetenByTeilprojekte = MebedoWorld.createReport<Aktivitaet, T
             onExecute: { 
                 redirect: '/consulting/aktivitaeten/new?tpId={{parentRecord._id}}'
             }
-        },
+        },*/
         /*{
             title: 'Export CSV',
             inGeneral: true,

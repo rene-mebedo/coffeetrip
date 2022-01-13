@@ -97,6 +97,10 @@ export interface IReport<T, Caller> {
     _id?: string
     title: string
     description: string
+    /**
+     * Hides the title section of an table typed report
+     */
+    noHeader?: boolean
     type: 'table' | 'chart' | 'widget'
     chartType?: 'bar' | 'line' | 'pie'
     icon?:string

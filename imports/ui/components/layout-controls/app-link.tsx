@@ -5,25 +5,22 @@ import { EnumDocumentModes, EnumMethodResult } from '/imports/api/consts';
 import { IGenericDocument } from '/imports/api/lib/core';
 import { debounce } from '/imports/api/lib/basics';
 
-//import Form from 'antd/lib/form';
 import Button from 'antd/lib/button';
 import Image from 'antd/lib/image';
 import List from 'antd/lib/list';
 import Select from 'antd/lib/select';
 import Spin from 'antd/lib/spin';
 import message from 'antd/lib/message';
+import Typography from 'antd/lib/typography';
+
+const { /*Text,*/ Link } = Typography;
+
+import CloseOutlined from '@ant-design/icons/CloseOutlined';
 
 const { Option } = Select;
 
-
-import CloseOutlined from '@ant-design/icons/CloseOutlined';
-//import { useWhenChanged } from '/imports/api/lib/react-hooks';
-
-
-//import moment from 'moment';
-//import { getLabel } from '../app-layout';
 import { IAppField, IAppLink, IGenericAppLinkOptionsResult } from '/imports/api/types/app-types';
-import { GenericInputWrapper, IGenericControlProps } from './generic-input-wrapper';
+import { GenericControlWrapper, IGenericControlProps } from './generic-control-wrapper';
 
 export interface IAppLinkControlProps {
     productId: string,
@@ -144,6 +141,7 @@ class AppLinkInput extends React.Component<IAppLinkControlProps, IAppLinkControl
 
         return <Fragment>
             <List
+                locale={{emptyText: 'Bitte auswählen'}}
                 className="module-list-input-selected-items"
                 itemLayout="horizontal"
                 dataSource={ value }
@@ -154,7 +152,7 @@ class AppLinkInput extends React.Component<IAppLinkControlProps, IAppLinkControl
                         <List.Item.Meta
                             avatar={hasImage ? <Image src={item.imageUrl} width={48} /> : null}
                             title={
-                                (linkable && item.link) ? <a href={item.link}>{item.title}</a> : <span>{item.title}</span>
+                                (linkable && item.link) ? <Link href={item.link}>{item.title}</Link> : <span>{item.title}</span>
                             }
                             description={(hasDescription ? <span style={{fontSize:10}}>{item.description}</span> : null)}
                         />
@@ -191,106 +189,17 @@ class AppLinkInput extends React.Component<IAppLinkControlProps, IAppLinkControl
     }
 }
 
-
-/*export const SingleModuleOption = ({ elem, app, mode, defaults, record, onValuesChange }:IGenericControlProps) => {
-    const { _id: appId, productId, fields } = app;
-    
-    const fieldDefinition = fields[elem.field];
-    
-    const targetAppId = fieldDefinition.appLink.app
-
-    const { field, enabled } = elem;
-    let { rules, autoValue } = fields[field];
-    const [disabled, setDisabled] = useState(mode === 'SHOW');
-    const isEnabled = useMemo( () => (enabled ? eval(enabled) : () => true), [enabled] );
-
-    useWhenChanged(mode, (_oldMode: any) => {
-        if (mode == 'EDIT') {
-            // initialer Aufruf, wenn man aus dem SHOW in den EDIT-mode geht
-            const d = !isEnabled({ allValues: record, mode, moment });
-            if (d != disabled) setDisabled(d);
-        } else if ( mode == 'SHOW' ) {
-            if (!disabled) setDisabled(true);
-        } else {
-            // NEW
-            const d = !isEnabled({ allValues: defaults, mode, moment });
-            if (d != disabled) setDisabled(d);
-        }
-    });
-
-    if (rules && rules.length) {
-        rules = rules.map( (r:any) => {
-            if (r.customValidator) {
-                return eval(r.customValidator);
-            }
-            return r;
-        });
-    }
-
-    if (autoValue) {
-        const recomputeValue = eval(autoValue);
-        onValuesChange( (changedValues, allValues, setValue) => {    
-            const newValue = recomputeValue({changedValues, allValues, moment});
-            if (allValues[field] !== newValue) {
-                setValue(field, newValue);
-            }
-        });
-    }
-
-    if (enabled && mode !== 'SHOW') {
-        // immer dann aufrufen, wenn sich Werte geändert haben
-        onValuesChange( (changedValues, allValues, _setValue) => {            
-            const d = !isEnabled({changedValues, allValues, mode, moment});
-            if (d != disabled) setDisabled(d);
-        });
-    }
-
-    return (
-        <Fragment>
-            <Form.Item 
-                label={getLabel(elem, app.fields)}
-                name={elem.field}
-                rules={rules}
-            >
-                <AppLinkInput
-                    productId={productId}
-                    appId={appId}
-                    fieldId={elem.field}
-
-                    //targetProductId={fieldDefinition.appLink.productId}
-                    targetAppId={targetAppId}
-
-                    mode={mode}
-                    
-                    //defaults={defaults}
-                    //document={document}
-
-                    hasDescription={fieldDefinition.appLink.hasDescription}
-                    hasImage={fieldDefinition.appLink.hasImage}
-                    linkable={fieldDefinition.appLink.linkable}
-
-                    maxItems={1}
-
-                    disabled={disabled}
-                />
-            </Form.Item>
-
-        </Fragment>
-    )
-}
-*/
-
 export const SingleModuleOption = (props: IGenericControlProps) => {
     const { elem, app, mode } = props;
     const { _id: appId, productId, fields } = app;
     
-    const fieldDefinition: IAppField = fields[elem.field as string];
-    const appLink: IAppLink = fieldDefinition.appLink as IAppLink;
+    const fieldDefinition: IAppField<any> = fields[elem.field as string];
+    const appLink: IAppLink<any> = fieldDefinition.appLink as IAppLink<any>;
 
     const targetAppId: string = appLink.app as unknown as string;
 
     return (
-        <GenericInputWrapper {...props}>
+        <GenericControlWrapper {...props} className="mbac-input mbac-app-link">
             <AppLinkInput
                 productId={productId as string}
                 appId={appId as string}
@@ -306,7 +215,6 @@ export const SingleModuleOption = (props: IGenericControlProps) => {
 
                 maxItems={1}
             />
-        </GenericInputWrapper>
-
+        </GenericControlWrapper>
     )
 }

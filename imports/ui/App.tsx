@@ -51,7 +51,6 @@ export const App:React.FC<IAppProps> = ({ content, routeStatus, authenticatedRou
             }
         })
     }, []);
-    console.log(currentUser, accountsReady);
 
     if (!accountsReady) {
         return <Spin size="large" />

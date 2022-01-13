@@ -8,7 +8,7 @@ import { TOptionValues } from '/imports/api/types/app-types';
 import { IReportRendererExtras } from '/imports/api/types/world';
 
 import { Adresse } from '../apps/adressen';
-import { Kundenarten } from '../apps/kundenarten';
+import { Adressarten, AdressartenEnum } from '../apps/kundenarten';
 
 export const StaticReportAdressenByKundenart = MebedoWorld.createReport<Adresse, Adresse>('adressen-by-kundenart-static', {
 
@@ -27,11 +27,11 @@ export const StaticReportAdressenByKundenart = MebedoWorld.createReport<Adresse,
 
         const Adressen = getAppStore('adressen');
         
-        return Adressen.find({ kundenart: document?.kundenart }, { sort: { title: 1 } }).fetch();
+        return Adressen.find({ adressart: document?.adressart }, { sort: { title: 1 } }).fetch();
     },
 
     injectables: {
-        Kundenarten
+        Adressarten
     },
 
     columns: [
@@ -55,8 +55,8 @@ export const StaticReportAdressenByKundenart = MebedoWorld.createReport<Adresse,
             dataIndex: 'kundenart',
             key: 'kundenart',
             render: (kundenart: string, _adresse, { injectables, isExport }: IReportRendererExtras ) => {
-                const { Kundenarten }: { Kundenarten?: TOptionValues } = injectables;
-                const adrKundenart = Kundenarten && Kundenarten.find( ({_id}:{_id:any}) => _id == kundenart );
+                const { Adressarten }: { Adressarten?: TOptionValues<AdressartenEnum> } = injectables;
+                const adrKundenart = Adressarten && Adressarten.find( ({_id}:{_id:any}) => _id == kundenart );
                 
                 if (!adrKundenart) {
                     return isExport ? '!!' + kundenart : <Tag>{'!!' + kundenart}</Tag>

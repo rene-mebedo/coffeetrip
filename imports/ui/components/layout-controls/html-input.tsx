@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { GenericInputWrapper, IGenericControlProps } from "./generic-input-wrapper";
+import { GenericControlWrapper, IGenericControlProps } from "./generic-control-wrapper";
 import { Summernote } from '../Summernote';
 
 export const HtmlInput = (props: IGenericControlProps) => {
@@ -33,8 +33,8 @@ export const HtmlInput = (props: IGenericControlProps) => {
     };
     
     return (
-        <GenericInputWrapper {...props} >
+        <GenericControlWrapper {...props} className="mbac-input mbac-wysiwyg" >
             <Summernote options={options} />
-        </GenericInputWrapper>
+        </GenericControlWrapper>
     )
 }

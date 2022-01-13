@@ -16,7 +16,7 @@ export interface WriteOpResult {
 }
 
 
-import { EnumMethodResult } from "../consts";
+import { EnumFieldTypes, EnumMethodResult } from "../consts";
 import { IMethodStatus, IWorldUser } from "../types/world";
 import { isFunction, deepClone, isArray, isString } from "./basics";
 import { Product } from "./product";
@@ -25,7 +25,7 @@ import { MethodInvocationFunction } from "./types";
 import { World } from "./world";
 import moment from 'moment'
 
-import { AppData, IActivitiesReplyToProps, IApp, IDefaultAppData, IGenericAppLinkOptionsResult, IGenericDefaultResult, IGenericInsertArguments, IGenericInsertResult, IGenericRemoveArguments, IGenericRemoveResult, IGenericUpdateArguments, IGenericUpdateResult, IGetAppLinkOptionProps, IGetUsersSharedWithResult, ILockResult, IPostProps, UpdateableAppData } from "/imports/api/types/app-types";
+import { AppData, IActivitiesReplyToProps, IApp, IDefaultAppData, IGenericAppLinkOptionsResult, IGenericDefaultResult, IGenericInsertArguments, IGenericInsertResult, IGenericRemoveArguments, IGenericRemoveResult, IGenericUpdateArguments, IGenericUpdateResult, IGetAppLinkOptionProps, IGetUsersSharedWithResult, ILockResult, IPostProps, TAppLink, UpdateableAppData } from "/imports/api/types/app-types";
 import { injectUserData } from "./roles";
 import { Activities } from "./activities";
 import SimpleSchema from "simpl-schema";
@@ -158,6 +158,7 @@ export class App<T> {
                 f.appLink.app = refAppId;
 
                 if (isFunction(f.appLink.description)) f.appLink.description = f.appLink.description.toString();
+                if (isFunction(f.appLink.link)) f.appLink.link = f.appLink.link.toString();
             }
 
             if (f.autoValue) f.autoValue = f.autoValue.toString();
@@ -235,6 +236,10 @@ export class App<T> {
     
                         if (elem.visible) {
                             elem.visible = elem.visible.toString();
+                        }
+
+                        if (elem.render) {
+                            elem.render = elem.render.toString();
                         }
     
                         AppLayoutElementsSchema.validate(elem);
@@ -447,10 +452,24 @@ export class App<T> {
             if (field && field.appLink && field.appLink.imageUrl) {
                 getImageUrl = eval(field.appLink.imageUrl as unknown as string);
             }
-    
+
+            // prüfen, der Eintrag verlinkbar sein soll
+            const getLink = (doc: any): string | null => {
+                if (field && field.appLink && field.appLink.linkable) {
+                    if (field.appLink.link && isFunction(field.appLink.link)) {
+                        return field.appLink.link(doc);
+                    } else {
+                        return `/${self.product.productId}/${self.appId}/${doc._id}`;
+                    }
+                }
+
+                return null;
+            }
+            
             const options: Array<IGenericDocument> = data.map( doc => {            
                 doc.description = getDescription(doc);
                 doc.imageUrl = getImageUrl(doc);
+                doc.link = getLink(doc);
     
                 return doc;
             });
@@ -474,7 +493,7 @@ export class App<T> {
             let result: IDefaultAppData<T> | null = null;
             if (self.app.methods && self.app.methods.defaults && isFunction(self.app.methods.defaults)) {
                 try {
-                    result = await self.app.methods.defaults({queryParams, isServer: true}, { moment, session: undefined });
+                    result = await self.app.methods.defaults({queryParams, isServer: true}, { moment, session: undefined, hasChanged: self.hasChanged(null, null), currentValue: self.currentValue(null, null) });
                 } catch (err) {
                     return { 
                         status: EnumMethodResult.STATUS_SERVER_EXCEPTION, 
@@ -888,7 +907,7 @@ export class App<T> {
             let result: IDefaultAppData<T>;
 
             try {
-                result = await this.app.methods.defaults({ NEW: values, isServer: true }, { session: options?.session, moment });
+                result = await this.app.methods.defaults({ NEW: values, isServer: true }, { session: options?.session, moment, hasChanged: this.hasChanged(values, null), currentValue: this.currentValue(values, null) });
             } catch(err) {
                 return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: 'Es ist ein Fehler beim ermitteln der Defaultwerte aufgetreten.' + err.message }
             }
@@ -898,14 +917,14 @@ export class App<T> {
             }
 
             // add the defaults to the values object if the specified prop is not set
-            const defaultPropNames = Object.keys(result.defaults);
+            const defaultPropNames = Object.keys(result.defaults || {});
             // check if defaults are defined
             if (defaultPropNames && defaultPropNames.length > 0) {
                 defaultPropNames.map ( propName => {
                     const index: keyof T = propName as unknown as keyof T;
                     // check if prop was not set by the user or input
                     if (values[index] === null || values[index] === undefined) {
-                        values[index] = <any>result.defaults[index];
+                        values[index] = (result as any).defaults[index];
                     }
                 });
             }
@@ -915,7 +934,7 @@ export class App<T> {
             let result;
 
             try {
-                result = await this.app.methods.onBeforeInsert(values, { session: options?.session });
+                result = await this.app.methods.onBeforeInsert(values, { session: options?.session, moment, hasChanged: this.hasChanged(values, null), currentValue: this.currentValue(values, null) });
             } catch(err) {
                 return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: err.message }
             }
@@ -956,7 +975,7 @@ export class App<T> {
             let result;
 
             try {
-                result = await this.app.methods.onAfterInsert(docId as string, values, { session: options?.session });
+                result = await this.app.methods.onAfterInsert(docId as string, values, { session: options?.session, moment, hasChanged: this.hasChanged(values, null), currentValue: this.currentValue(values, null) });
             } catch(err) {
                 return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: err.message }
             }
@@ -1053,7 +1072,7 @@ export class App<T> {
             let result;
 
             try {
-                result = await this.app.methods.onBeforeUpdate.apply(null, [docId, values, oldValues, { session: options?.session, hasChanged: this.hasChanged(values, oldValues) } ]);
+                result = await this.app.methods.onBeforeUpdate.apply(null, [docId, values, oldValues, { session: options?.session, moment, hasChanged: this.hasChanged(values, oldValues), currentValue: this.currentValue(values, oldValues) } ]);
             } catch(err) {
                 return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: err.message }
             }
@@ -1105,7 +1124,7 @@ export class App<T> {
             let result;
 
             try {
-                result = await this.app.methods.onAfterUpdate.apply(null, [docId, values, oldValues, { session: options?.session, hasChanged: this.hasChanged(values, oldValues) } ]);
+                result = await this.app.methods.onAfterUpdate.apply(null, [docId, values, oldValues, { session: options?.session, moment, hasChanged: this.hasChanged(values, oldValues), currentValue: this.currentValue(values, oldValues) } ]);
             } catch(err) {
                 return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: err.message }
             }
@@ -1201,7 +1220,7 @@ export class App<T> {
             let result;
 
             try {
-                result = await this.app.methods.onBeforeRemove.apply(null, [oldValues, { session: options?.session } ]);
+                result = await this.app.methods.onBeforeRemove.apply(null, [oldValues, { session: options?.session, moment, hasChanged: this.hasChanged(null, oldValues), currentValue: this.currentValue(null, oldValues) } ]);
             } catch(err) {
                 return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: err.message }
             }
@@ -1247,7 +1266,7 @@ export class App<T> {
             let result;
 
             try {
-                result = await this.app.methods.onAfterRemove.apply(null, [oldValues, { session: options?.session } ]);
+                result = await this.app.methods.onAfterRemove.apply(null, [oldValues, { session: options?.session, moment, hasChanged: this.hasChanged(null, oldValues), currentValue: this.currentValue(null, oldValues) } ]);
             } catch(err) {
                 return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: err.message }
             }
@@ -1274,12 +1293,49 @@ export class App<T> {
      * @param OLD old Data values from store
      * @returns function to check Property
      */
-    private hasChanged(NEW:AppData<T> | UpdateableAppData<T>, OLD:AppData<T> | UpdateableAppData<T>): (propName: keyof T) => boolean {
+    private hasChanged(NEW:AppData<T> | UpdateableAppData<T> | null, OLD:AppData<T> | UpdateableAppData<T> | null): (propName: keyof T) => boolean {
         return function (propName: keyof T) {
-            return NEW[propName] !== undefined && (NEW[propName] !== OLD[propName]);
+            // wenn NEW und OLD null sind, dann handelt es sich um
+            // den getDefaults
+            if (NEW === null && OLD === null) return false;
+
+            // wenn OLD null ist, dann handelt es sich um einen insert
+            // und der Wert wurde geändert sofern ein Wert vorhanden ist
+            if (OLD === null) return !!NEW && NEW[propName] !== undefined;
+
+            // wenn NEW null ist, so handelt es sich um den remove
+            // und es kann immer false zurckgegeben werden
+            if (NEW === null) return false;
+
+            // im update muss genau geprüft werden, ob sich der Wert von NEW zu OLD geändert hat
+            return NEW[propName] !== undefined && (NEW[propName] !== (OLD && OLD[propName]));
         }
     }
 
+    /**
+     * Returns the current Value of Prop inside Updatetrigger
+     * 
+     * @param NEW Values set for Update
+     * @param OLD old Data values from store
+     * @returns function to get current Value of Prop
+     */
+    private currentValue(NEW:AppData<T> | UpdateableAppData<T> | null, OLD:AppData<T> | UpdateableAppData<T> | null): (propName: keyof T) => any {
+        return function (propName: keyof T) {
+            // wenn NEW und OLD null sind, dann handelt es sich um
+            // den getDefaults
+            if (NEW === null && OLD === null) return undefined;
+
+            // wenn OLD null ist, dann handelt es sich um einen insert, Neuzugang
+            if (OLD === null) return NEW && NEW[propName];
+
+            // wenn NEW null ist, so handelt es sich um den remove
+            // und es gibt nur die "alten" Werte
+            if (NEW === null) return OLD[propName];
+
+            return NEW[propName] === undefined ? OLD[propName] : NEW[propName];
+        }
+    }
+    
     /**
      * Inserts the given document
      * 
@@ -1345,21 +1401,50 @@ export class App<T> {
             const { namesAndMessages } = this.app.fields[fieldName];
 
             let hasChanged: boolean = false;
-            // prüfung für Datespan Array of dates
-            if (isArray(data[fieldName]) && isArray(oldData[fieldName])) {
-                const nData = data[fieldName] as unknown as Array<any>;
-                const oData = oldData[fieldName] as unknown as Array<any>;
-
-                if (nData.length != oData.length) {
-                    hasChanged = true;
+            
+            if (this.app.fields[fieldName].type == EnumFieldTypes.ftAppLink) {
+                
+                if (data[fieldName] === undefined /*&& oldData[fieldName] === undefined*/) {
+                    // wenn newData-Objekt undefined ist, so wurde das Feld im Update nicht berücksichtigt
+                    // somit ist es nicht verändert worden
+                    hasChanged = false
                 } else {
-                    nData.forEach( (a, i) => {
-                        if (a.toString() != oData[i].toString()) hasChanged = true;
-                    })
+                    if (
+                        (data[fieldName] !== undefined && (oldData[fieldName] === undefined || oldData[fieldName] === null)) ||
+                        ((data[fieldName] === undefined || oldData[fieldName] === null) && oldData[fieldName] !== undefined )
+                    ) {
+                        hasChanged = true
+                    } else {
+                        // old und newdata weise Daten auf, nun auf Feldebene vergleichen
+                        (data[fieldName] as unknown as TAppLink).forEach((d, i) => {
+                            if (!hasChanged){
+                                const oldD = (oldData[fieldName] as unknown as TAppLink)[i];
+                                ['_id', 'title', 'desciption', 'link', 'imageUrl'].forEach( (prop: string) => {
+                                    if ((d as any)[prop] !== (oldD && (oldD as any)[prop])) {
+                                        hasChanged = true
+                                    }
+                                })
+                            }
+                        });
+                    }
                 }
             } else {
-                hasChanged = data[fieldName] !== undefined && data[fieldName] !== oldData[fieldName];
-            }
+                // prüfung für Datespan Array of dates
+                if (isArray(data[fieldName]) && isArray(oldData[fieldName])) {
+                    const nData = data[fieldName] as unknown as Array<any>;
+                    const oData = oldData[fieldName] as unknown as Array<any>;
+
+                    if (nData.length != oData.length) {
+                        hasChanged = true;
+                    } else {
+                        nData.forEach( (a, i) => {
+                            if (a.toString() != oData[i].toString()) hasChanged = true;
+                        })
+                    }
+                } else {
+                    hasChanged = data[fieldName] !== undefined && data[fieldName] !== oldData[fieldName];
+                }
+            }            
 
             if (hasChanged) {
                 changes.push({

@@ -3,22 +3,44 @@ import { defaultSecurityLevel } from "../../security";
 import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
 
 import { Allgemein } from "/server/app/allgemein";
-import { Kundenarten } from "./kundenarten";
-import { IGenericApp } from "/imports/api/types/app-types";
+import { Adressarten, AdressartenEnum } from "./kundenarten";
+import { IGenericApp, IGoogleMapsLocationProps } from "/imports/api/types/app-types";
 import { ReportAdressenByKundenart } from "../reports/adressen-by-kundenart";
 import { WidgetAdressenByKundenart } from "../reports/adressen-by-kundenart.widget";
 import { ChartAdressenByKundenart } from "../reports/adressen-by-kundenart.chart";
-import { getAppStore } from "/imports/api/lib/core";
-import { StaticReportAdressenByKundenart } from "../reports/adressen-by-kundenart.static";
+import { getAppStore } from "/imports/api/lib/core"; 
 
 export interface Adresse extends IGenericApp {
-    kundenart: string;
-    firma1: string;
-    firma2: string;
-    firma3: string;
-    strasse: string;
+    /**
+     * Kennzeichung der Adresse ob diese ein Kunde, Hotel
+     * Distributor, etc. ist
+     */
+    adressart: AdressartenEnum;
+
+    /**
+     * Allgemeine Anschriftsinformation Adressenzeile (1)
+     */
+    firma1: string
+    /**
+     * Allgemeine Anschriftsinformation Adressenzeile (2)
+     */
+    firma2: string
+    /**
+     * Allgemeine Anschriftsinformation Adressenzeile (3)
+     */
+    firma3: string
+    /**
+     * Allgemeine Anschriftsinformation Strasse
+     */
+    strasse: string
+    /**
+     * Allgemeine Anschriftsinformation Postleitzahl
+     */
     plz: string
-    ort: string;
+    /**
+     * Allgemeine Anschriftsinformation Ort
+     */
+    ort: string
 }
 
 
@@ -63,19 +85,19 @@ export const Adressen = Allgemein.createApp<Adresse>({
             ...defaultSecurityLevel
         },
 
-        kundenart: {
+        adressart: {
             type: EnumFieldTypes.ftString,
             rules: [
                 { required: true, message: 'Bitte spezifizieren Sie diese Adresse.' },    
             ],
-            ...FieldNamesAndMessages('die', 'Kundenart', 'die', 'Kundenart'),
+            ...FieldNamesAndMessages('die', 'Adressart', 'die', 'Adressarten'),
             ...defaultSecurityLevel
         },
 
         firma1: {
             type: EnumFieldTypes.ftString,
             rules: [
-                { required: true, message: 'Bitte geben Sie mindestens enei Adressenzeile an.' },    
+                { required: true, message: 'Bitte geben Sie mindestens eine Adressenzeile an.' },    
             ],
             ...FieldNamesAndMessages('die', 'Firmenbezeichnug Zeile 1', 'die', 'Firmenbezeichnug Zeile 1'),
             ...defaultSecurityLevel
@@ -132,18 +154,38 @@ export const Adressen = Allgemein.createApp<Adresse>({
             elements: [
                 { field: 'title', controlType: EnumControltypes.ctStringInput },
                 { field: 'description', title: 'Beschreibung', controlType: EnumControltypes.ctStringInput },
-                { field: 'kundenart', controlType: EnumControltypes.ctOptionInput, values: Kundenarten },
+                { field: 'adressart', controlType: EnumControltypes.ctOptionInput, values: Adressarten },
 
                 { title: 'Allgemein', controlType: EnumControltypes.ctCollapsible, collapsedByDefault: true, elements: [
-                    { controlType: EnumControltypes.ctDivider, title: 'Firma' },
-                    { field: 'firma1', title: 'Zeile 1', controlType: EnumControltypes.ctStringInput },
-                    { field: 'firma2', title: 'Zeile 2', controlType: EnumControltypes.ctStringInput },
-                    { field: 'firma3', title: 'Zeile 3', controlType: EnumControltypes.ctStringInput },
-    
-                    { controlType: EnumControltypes.ctDivider, title: 'Anschrift' },
-                    { field: 'strasse', controlType: EnumControltypes.ctStringInput },
-                    { field: 'plz', controlType: EnumControltypes.ctStringInput },
-                    { field: 'ort', controlType: EnumControltypes.ctStringInput },
+                    { controlType: EnumControltypes.ctColumns, columns: [
+                        { columnDetails: {xs:24,sm:24,md:24,lg:12,xl:12,xxl:12}, elements: [
+                            { controlType: EnumControltypes.ctDivider, title: 'Firma' },
+                            { field: 'firma1', title: 'Zeile 1', controlType: EnumControltypes.ctStringInput },
+                            { field: 'firma2', title: 'Zeile 2', controlType: EnumControltypes.ctStringInput },
+                            { field: 'firma3', title: 'Zeile 3', controlType: EnumControltypes.ctStringInput },
+            
+                            { controlType: EnumControltypes.ctDivider, title: 'Anschrift' },
+                            { field: 'strasse', controlType: EnumControltypes.ctStringInput },
+                            { field: 'plz', controlType: EnumControltypes.ctStringInput },
+                            { field: 'ort', controlType: EnumControltypes.ctStringInput },
+                        ]},
+                        { columnDetails: {xs:24,sm:24,md:24,lg:12,xl:12,xxl:12}, elements: [
+                            { controlType: EnumControltypes.ctGoogleMap, googleMapDetails: {
+                                location:  ({ document, allValues }: IGoogleMapsLocationProps) => {
+                                    const { firma1, firma2, firma3, strasse, plz, ort} = allValues || document;                                    
+                                    let newLocation = firma1 || '';
+
+                                    if (firma2) newLocation += ' ' + firma2;
+                                    if (firma3) newLocation += ' ' + firma3;
+                                    if (strasse) newLocation += ', ' + strasse;
+                                    if (plz) newLocation += ', ' + plz;
+                                    if (ort) newLocation += ' ' + ort;
+                                    
+                                    return newLocation;
+                                }
+                            }}
+                        ]}
+                    ]}
                 ]},
             ]
         },
@@ -164,21 +206,26 @@ export const Adressen = Allgemein.createApp<Adresse>({
     },
 
     methods: {
-        defaults: () => {
-            return {}
+        defaults: async function() {
+            return { 
+                status: EnumMethodResult.STATUS_OKAY,
+                defaults: {}
+            }
         },
-        onAfterInsert: (values) => {
+        
+        onAfterInsert: async function (_id, NEW) {
             const AdressenCounts = getAppStore('adressen.counts');
             
-            AdressenCounts.update(values.kundenart, { $inc: { value: 1 } });
+            AdressenCounts.update(NEW.adressart, { $inc: { value: 1 } });
     
             return { status: EnumMethodResult.STATUS_OKAY }
         },
-        onAfterUpdate: (values, oldValues) => {
-            if (values.kundenart !== oldValues.kundenart) {
+
+        onAfterUpdate: async function(_id, NEW, OLD, { hasChanged }) {
+            if (hasChanged('adressart')) {
                 const AdressenCounts = getAppStore('adressen.counts');
         
-                [{k: values.kundenart, v:1}, {k: oldValues.kundenart, v:-1}].forEach( ({k,v}) => {    
+                [{k: NEW.adressart, v:1}, {k: OLD.adressart, v:-1}].forEach( ({k,v}: any) => {    
                     AdressenCounts.update(k, { $inc: { value: v } });
                 });
             }
@@ -198,22 +245,16 @@ export const Adressen = Allgemein.createApp<Adresse>({
             rows: [
                 {
                     elements: [
-                        { _id:'anzahl-kunden', width: { xs:24, sm:24, md: 12, lg: 6 },  type: 'report', details: { type: 'widget', reportId: WidgetAdressenByKundenart.reportId, document: { kundenart: 'kunde' } } },
-                        { _id:'anzahl-interessenten', width: { xs:24, sm:24, md: 12, lg: 6 },  type: 'report', details: { type: 'widget', reportId: WidgetAdressenByKundenart.reportId, document: { kundenart: 'interessent' } } },
-                        { _id:'anzahl-partner', width: { xs:24, sm:24, md: 12, lg: 6 },  type: 'report', details: { type: 'widget', reportId: WidgetAdressenByKundenart.reportId, document: { kundenart: 'partner' } } },
-                        { _id:'anzahl-hotels', width: { xs:24, sm:24, md: 12, lg: 6 },  type: 'report', details: { type: 'widget', reportId: WidgetAdressenByKundenart.reportId, document: { kundenart: 'hotel' } } }
+                        { _id:'anzahl-kunden', width: { xs:24, sm:24, md: 12, lg: 6 },  type: 'report', details: { type: 'widget', reportId: WidgetAdressenByKundenart.reportId, document: { adressart: 'kunde' } } },
+                        { _id:'anzahl-interessenten', width: { xs:24, sm:24, md: 12, lg: 6 },  type: 'report', details: { type: 'widget', reportId: WidgetAdressenByKundenart.reportId, document: { adressart: 'interessent' } } },
+                        { _id:'anzahl-partner', width: { xs:24, sm:24, md: 12, lg: 6 },  type: 'report', details: { type: 'widget', reportId: WidgetAdressenByKundenart.reportId, document: { adressart: 'partner' } } },
+                        { _id:'anzahl-hotels', width: { xs:24, sm:24, md: 12, lg: 6 },  type: 'report', details: { type: 'widget', reportId: WidgetAdressenByKundenart.reportId, document: { adressart: 'hotel' } } }
                     ]
                 },
                 {
                     elements: [
+                        { _id:'adressen-static-sonstige', width: { xs: 24, sm:24, md:24, lg:12 },  type: 'report', details: { type: 'table', reportId: ReportAdressenByKundenart.reportId, document: { adressart: 'sonstiges' } } },
                         { _id:'adressen-kundenarten', width: { xs: 24, sm:24, md:24, lg:12 },  type: 'report', details: { type: 'chart', chartType:'bar', reportId: ChartAdressenByKundenart.reportId } },
-                        { _id:'adressen-static-sonstige', width: { xs: 24, sm:24, md:24, lg:12 },  type: 'report', details: { type: 'table', reportId: StaticReportAdressenByKundenart.reportId, document: { kundenart: 'sonstiges' } } }
-                    ]
-                },
-                {
-                    elements: [
-                        { _id:'adressen-kunden', width: { xs: 24, sm:24, md:12 },  type: 'report', details: { type: 'table', reportId: ReportAdressenByKundenart.reportId, document: { kundenart: 'kunde' } } },
-                        { _id:'adressen-partner', width: { xs: 24, sm:24, md:12 },  type: 'report', details: { type: 'table', reportId: ReportAdressenByKundenart.reportId, document: { kundenart: 'partner' } } }
                     ]
                 },
             ]
@@ -226,31 +267,34 @@ export const Adressen = Allgemein.createApp<Adresse>({
         },
     },
 });
-/*
-const Adr = getAppStore('adressen');
+
+//const Adr = getAppStore('adressen');
 const AdressenCounts = getAppStore('adressen.counts');
 
-Kundenarten.forEach( (k) => {
+Adressarten.forEach( (k) => {
     const { _id: kid } = k;
 
-    const kk = Kundenarten.find( kundenart => kid === kundenart._id);
+    const kk = Adressarten.find( adressart => kid === adressart._id);
     
-    const kundenartCounter = Adr.find({ kundenart: kid }).count();
-    const doc = {
-        title: 'Anzahl ' + (kk?.pluralTitle || kk?.title), 
-        icon: kk?.icon,
-        color: kk?.color,
-        backgroundColor: kk?.backgroundColor,
-        value: kundenartCounter
-    }
-
-    const kundenartCount = AdressenCounts.findOne(kid);
-    if (!kundenartCount) { 
-        AdressenCounts.insert({
-            _id: kid,
-            ...doc
-        }); 
-    } else {
-        AdressenCounts.update(kid, { $set: { ...doc }})
-    }
-});*/
+    Adressen.raw().find({ adressart: kid }).count().then( count =>{
+        const doc = {
+            title: 'Anzahl ' + (kk?.pluralTitle || kk?.title), 
+            icon: kk?.icon,
+            color: kk?.color,
+            backgroundColor: kk?.backgroundColor,
+            value: count
+        }
+    
+        const kundenartCount = AdressenCounts.findOne(kid);
+        if (!kundenartCount) { 
+            AdressenCounts.insert({
+                _id: kid,
+                ...doc
+            }); 
+        } else {
+            AdressenCounts.update(kid, { $set: { ...doc }})
+        }
+    }).catch(err =>{
+        console.log(err);
+    });
+});

@@ -22,7 +22,7 @@ export const WidgetAdressenByKundenart = MebedoWorld.createReport<Adresse, Adres
 
         const AdressenCounts = getAppStore('adressen.counts');
         
-        return AdressenCounts.find({ _id: document?.kundenart });
+        return AdressenCounts.find({ _id: document?.adressart });
     },
 
     actions: [
@@ -41,7 +41,7 @@ export const WidgetAdressenByKundenart = MebedoWorld.createReport<Adresse, Adres
             executeBy: [ 'ADMIN', 'EMPLOYEE' ],
 
             onExecute: { 
-                redirect: '/reports/adressen-by-kundenart?kundenart={{doc.kundenart}}'
+                redirect: '/reports/adressen-by-kundenart?adressart={{doc.adressart}}'
             }
         },
         /*{

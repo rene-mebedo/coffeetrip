@@ -14,8 +14,9 @@ export enum EnumFieldTypes {
     ftDate = 'Date',
     ftDatespan = 'Datespan',
     ftYear = 'Year',
+    ftBoolean = 'Boolean',
     ftInteger = 'Integer',
-    ftBoolean = 'Boolean'
+    ftDecimal = 'Decimal',
 }
 
 export enum EnumControltypes {
@@ -23,11 +24,13 @@ export enum EnumControltypes {
     ctStringInput = 'String',
     ctTextInput = 'Text',
     ctNumberInput = 'Number',
+    ctCurrencyInput = 'Currency',
     ctHtmlInput = 'Html',
     ctDateInput = 'Date',
     ctDatespanInput = 'Datespan',
     ctYearInput = 'Year',
     ctInlineCombination = 'InlineCombination',
+    ctSpacer = 'Spacer',
     ctOptionInput = 'Option',
     ctDivider = 'Divider',
     ctSingleModuleOption = 'SingleModuleOption',

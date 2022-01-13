@@ -3,25 +3,25 @@ import React from 'react';
 import Row from 'antd/lib/row';
 import Col from 'antd/lib/col';
 
-import { IGenericControlProps } from "./generic-input-wrapper";
+import { GenericControlWrapper, IGenericControlProps } from "./generic-control-wrapper";
 import { IAppLayoutElementColumns } from '/imports/api/types/app-types';
 import { LayoutElements } from '../app-layout';
 
-export const Columns = ({ elem, app, mode, defaults, document, onValuesChange, currentUser }: IGenericControlProps) => {
-    const { columns } = elem as IAppLayoutElementColumns<any>;
-
+export const Columns = (props: IGenericControlProps) => {
+    const { columns } = props.elem as IAppLayoutElementColumns<any>;
+    
     return (
-        <Row gutter={[16,16]} style={{marginBottom:16}}>
-            { 
-                columns.map( (col, colIndex) => {
+        <GenericControlWrapper {...props} withoutInput className="mbac-columns" >
+            <Row gutter={[16,16]} style={{marginBottom:16}}>
+                { columns.map( (col, colIndex) => {
                     const { columnDetails } = col;
                     return (
                         <Col key={colIndex} { ...columnDetails } >
-                            <LayoutElements elements={col.elements} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} currentUser={currentUser} />
+                            <LayoutElements { ...props } elements={col.elements} />
                         </Col>
                     );
-                })
-            }
-        </Row>
+                })}
+            </Row>
+        </GenericControlWrapper>
     );
 }

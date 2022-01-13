@@ -2,22 +2,37 @@ import React from 'react';
 
 import Row from 'antd/lib/row';
 import Col from 'antd/lib/col';
+import Form from 'antd/lib/form';
 
-import { IGenericControlProps } from "./generic-input-wrapper";
+import { GenericControlWrapper, IGenericControlProps } from "./generic-control-wrapper";
 import { IAppLayoutElementInlineCombination } from '/imports/api/types/app-types';
 import { getLabel, LayoutElements } from '../app-layout';
 
-export const InlineCombination = ({ elem, app, mode, defaults, document, onValuesChange, currentUser }: IGenericControlProps) => {
-    const elements = (elem as IAppLayoutElementInlineCombination<any>).elements;
+export const InlineCombination = (props: IGenericControlProps) => {
+    const { elements } = (props.elem as IAppLayoutElementInlineCombination<any>);
 
     return (
-        <Row className="ant-form-item" style={{ display: 'flex', flexFlow:'row wrap' }}>
-            <Col span={6} className="ant-form-item-label">
-                <label>{getLabel(elem, app.fields)}</label>
-            </Col>
-            <Col className="ant-form-item-control" style={{ display: 'flex', flexFlow:'row wrap' }}>
-                <LayoutElements currentUser={currentUser} elements={elements} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
-            </Col>
-        </Row>
+        <GenericControlWrapper {...props} withoutInput className="mbac-inline-combination" >
+            <Row className="ant-form-item" style={{ display: 'flex', flexFlow:'row wrap' }}>
+                <Col span={6} className="ant-form-item-label">
+                    <label>{getLabel(props.elem, props.app.fields)}</label>
+                </Col>
+                <Col className="ant-form-item-control" style={{ display: 'flex', flexFlow:'row wrap' }}>
+                    <LayoutElements { ...props } elements={elements} />
+                </Col>
+            </Row>
+        </GenericControlWrapper>
+    );
+}
+
+export const Spacer = (props: IGenericControlProps) => {
+    const { elements } = (props.elem as IAppLayoutElementInlineCombination<any>);
+
+    return (
+        <GenericControlWrapper {...props} withoutInput className="mbac-spacer" >
+            <Form.Item label={getLabel(props.elem, props.app.fields)} style={{ marginBottom: 0 }}>
+                <LayoutElements { ...props } elements={elements} />
+            </Form.Item>
+        </GenericControlWrapper>
     );
 }

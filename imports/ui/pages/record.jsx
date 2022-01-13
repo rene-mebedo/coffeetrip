@@ -51,6 +51,10 @@ export const Record = ({ params, queryParams, currentUser, mode }) => {
 
     const [ recordForm ] = useForm();
 
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [])
+    
     useOnceWhen(() => productStatus == EnumMethodResult.STATUS_OKAY && appStatus == EnumMethodResult.STATUS_OKAY && documentStatus != EnumMethodResult.STATUS_LOADING, () => {
         if (mode === 'NEW') {
             Meteor.call('__app.' + appId + '.getDefaults', {productId, appId, queryParams}, (err, result) => {
@@ -125,7 +129,6 @@ export const Record = ({ params, queryParams, currentUser, mode }) => {
 
         return (document && document._rev);
     }
-    console.log('Revision', getDocumentRevision());
 
     useWhenChanged(getDocumentRevision, () => {
         setTimeout(() => {
@@ -183,11 +186,11 @@ export const Record = ({ params, queryParams, currentUser, mode }) => {
     const saveRecord = e => {
         recordForm.validateFields().then( values => {
             const data = {
-                productId, //: product._id,
-                appId, //: app._id,
+                productId,
+                appId,
                 values
             }
-
+            
             // es müssen alle Date-Werte konvertiert werden, da diese als Funktionsausdruck von moment() vorliegen
             // uns nicht per Metor.call übertragen werden können
             Object.keys(app.fields).forEach(f => {

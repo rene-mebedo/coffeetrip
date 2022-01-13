@@ -1,8 +1,8 @@
-import { FieldNamesAndMessages } from "/imports/api/lib/helpers";
+import { FieldNamesAndMessages, isOneOf } from "/imports/api/lib/helpers";
 import { defaultSecurityLevel } from "../../security";
 import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
 
-import { IAppLink, IGenericApp, TAppLink } from "/imports/api/types/app-types";
+import { AppData, IAppLink, IGenericApp, TAppLink } from "/imports/api/types/app-types";
 import { Consulting } from "..";
 import { StatusField } from "../../akademie/apps/seminare";
 import { Adresse, Adressen } from "../../allgemein/apps/adressen";
@@ -10,44 +10,154 @@ import { Projektstati } from "./projektstati";
 import { TeilprojekteByProjekt } from "../reports/teilprojekte-by-projekt";
 import { Teilprojekte } from "./teilprojekte";
 import { ProjekteByUser } from "../reports/projekte-by-user";
+import { calcMinutes, Einheiten, TEinheit } from "./einheiten";
+import { renderSimpleWidgetAufwandMitEinheit } from "./_helpers";
+import { Rechnungsempfaenger } from "./rechnungsempfaenger";
+
+/**
+ * Steuerung wann die abweichende Rechnungsanschrift oder der Distributor
+ * in Ihrer Eingabe aktiviert und wann gesperrt werden
+ * 
+ * @returns true/false
+ */
+const enableRechnungsanschrift = (props: any): boolean => {
+    const { changedValues, allValues }: { changedValues: AppData<Projekt>, allValues: AppData<Projekt>} = props;
+    
+    if (!changedValues && !allValues) return false;
+
+    if (changedValues && changedValues.rechnungsempfaenger) {
+        return changedValues.rechnungsempfaenger === 'abweichend'
+    }
+
+    if (allValues && allValues.rechnungsempfaenger) {
+        return allValues.rechnungsempfaenger === 'abweichend';
+    }
+
+    return false;
+}
+
+const enableDistributor = (props: any): boolean => {
+    const { changedValues, allValues }: { changedValues: AppData<Projekt>, allValues: AppData<Projekt>} = props;
+    if (!changedValues && !allValues) return false;
+    
+    if (changedValues && changedValues.rechnungsempfaenger ) {
+        return changedValues.rechnungsempfaenger === 'distributor'
+    }
+
+    if (allValues && allValues.rechnungsempfaenger) {
+        return allValues.rechnungsempfaenger === 'distributor';
+    }
+
+    return false;
+}
 
 export interface Projekt extends IGenericApp {
     kunde: TAppLink
+
     projektname: string
+
     zeitraum: Array<Date>
+
     status: string
     
     /**
-     * geplanter Gesamtaufwand für das Projekt 
+     * geplanter Gesamtaufwand für das Projekt in Minuten
      **/
-    aufwandPlan: number
+    aufwandPlanMinuten: number
+    
     /**
-     * Ist-Aufwand, der bereits für das Projekt geleistet wurde
+     * Ist-Aufwand, der bereits für das Projekt geleistet wurde  in Minuten
      */
-    aufwandIst: number
+    aufwandIstMinuten: number
+    
     /**
-     * Gesamtaufwand (verbleibend) für das Projekte
+     * Gesamtaufwand (verbleibend) für das Projekte  in Minuten
      */
-    aufwandRest: number
+    aufwandRestMinuten: number
     
     /**
      * geplanter Umsatz
      */
     erloesePlan: number
+    
     /**
      * Umsatz, der gebucht wurde jedoch noch nicht fakturiert ist
      */
     erloeseForecast: number
+    
     /**
      * fakturierter Umsatz
      */
     erloeseIst: number
+
     /**
      * noch zu fakturierender Umsatz
      */
     erloeseRest: number
-}
+    
+    /**
+     * Definition der Projektstunden je Beratungstag
+     * Diese muss immer für die Berechnung der Tage Plan, Ist und Rest
+     * angewandt werden
+     */
+    stundenProTag: number,
 
+    /**
+     * Anzeigeeinheit in der die Aufwände in der Anwendung dargestellt werden
+     */
+    anzeigeeinheit: string
+    /**
+     * Singular, Plural der Anzeigeeinheit zur Darstellung und der Faktor
+     * zur Umrechnung der Aufände auf Minutenbasis zur Anzeigeeinheit
+     */
+    anzeigeeinheitDetails: { singular: string, plural: string, faktor: number, precision: number }
+
+    /** 
+     * Definition wie sich die Rechnungsanschrift, derRechnungsempfänger ergibt
+     * 
+     **/
+    rechnungsempfaenger: string
+
+    /**
+     * Abweichende Rechnungsanschrift Firmenname (Adressenzeile 1)
+     */
+    rechnungFirma1: string
+    /**
+     * Abweichende Rechnungsanschrift Firmenname (Adressenzeile 2)
+     */
+    rechnungFirma2: string
+
+    /**
+     * Abweichende Rechnungsanschrift Firmenname (Adressenzeile 3)
+     */
+    rechnungFirma3: string
+
+    /**
+     * Abweichende Rechnungsanschrift Strasse
+     */
+    rechnungStrasse: string
+
+    /**
+     * Abweichende Rechnungsanschrift Plz
+     */
+    rechnungPlz: string
+
+    /**
+     * Abweichende Rechnungsanschrift Ort
+     */
+    rechnungOrt: string
+
+    /**
+     * Abweichende Rechnungsanschrift Land
+     */
+    rechnungLand: string
+
+    /**
+     * Distributor, der als Rechnungsempfänger dient
+     * wenn das Feld rechnungsempfaenger den Wert "distributor" hat
+     */
+    rechnungDistributor: TAppLink
+}
 
 export const Projekte = Consulting.createApp<Projekt>({
     _id: 'projekte',
@@ -92,16 +202,17 @@ export const Projekte = Consulting.createApp<Projekt>({
 
         kunde: {
             type: EnumFieldTypes.ftAppLink,
-            appLink: < IAppLink<Adresse> > {
+            appLink: {
                 app: Adressen,
                 hasDescription: true,                
                 hasImage: false,
-                linkable: false
-            },
+                linkable: true,
+                link: (doc) => `/allgemein/adressen/${doc._id}`
+            } as IAppLink<Adresse>,
             rules: [
                 { required: true, message: 'Bitte geben Sie den Kunden an.' },
             ],
-            ...FieldNamesAndMessages('der', 'Kunde', 'die', 'Kunden'),
+            ...FieldNamesAndMessages('der', 'Kunde', 'die', 'Kunden', { onUpdate: 'den Kunden' }),
             ...defaultSecurityLevel
         },
 
@@ -125,7 +236,7 @@ export const Projekte = Consulting.createApp<Projekt>({
 
         status: StatusField,
         
-        aufwandPlan: {
+        aufwandPlanMinuten: {
             type: EnumFieldTypes.ftInteger,
             rules: [
                 { required: true, message: 'Bitte geben Sie den Projektaufwand (Gesamt) an.' },
@@ -134,14 +245,14 @@ export const Projekte = Consulting.createApp<Projekt>({
             ...defaultSecurityLevel
         },
         
-        aufwandIst: {
+        aufwandIstMinuten: {
             type: EnumFieldTypes.ftInteger,
             rules: [ ],
             ...FieldNamesAndMessages('der', 'Projektaufwand (Ist)', 'die', 'Projektaufwände (Ist)', { onUpdate: 'den Projektaufwand (Ist)' } ),
             ...defaultSecurityLevel
         },
 
-        aufwandRest: {
+        aufwandRestMinuten: {
             type: EnumFieldTypes.ftInteger,
             rules: [ ],
             ...FieldNamesAndMessages('der', 'Projektaufwand (Rest)', 'die', 'Projektaufwände (Rest)', { onUpdate: 'den Projektaufwand (Rest)' } ),
@@ -186,15 +297,127 @@ export const Projekte = Consulting.createApp<Projekt>({
             ],
             ...FieldNamesAndMessages('der', 'Erlös (Rest)', 'die', 'Erlöse (Rest)', { onUpdate: 'den Erlös (Rest)' } ),
             ...defaultSecurityLevel
-        }
+        },
+
+        stundenProTag: {
+            type: EnumFieldTypes.ftInteger,
+            rules: [ 
+                { type:'number', min: 1, message: 'Die minimale Stundenangabe beträgt 1 Stunde.' },
+                { type:'number', max: 10, message: 'Die maximale Stunden je Tag betragen 10 Stunden.' },
+                { required: true, message: 'Bitte geben Sie die Stunden je Beratertag an.' },
+            ],
+            ...FieldNamesAndMessages('die', 'Stunden je Beratertag', 'die', 'Stunden je Beratertag' ),
+            ...defaultSecurityLevel
+        },
+
+        anzeigeeinheit: {
+            type: EnumFieldTypes.ftString,
+            rules: [ 
+                { required: true, message: 'Bitte geben Sie Einheit an, in der die Aufwände angezeigt werden sollen.' },
+            ],
+            ...FieldNamesAndMessages('die', 'Einheit zur Darstellung der Aufwände', 'die', 'Einheiten zur Darstellung der Aufwände' ),
+            ...defaultSecurityLevel
+        },
+
+        anzeigeeinheitDetails: {
+            type: EnumFieldTypes.ftString,
+            rules: [ 
+                { required: true, message: 'Bitte geben Sie Details zur Anzeigeeinheit an.' },
+            ],
+            ...FieldNamesAndMessages('die', 'Details zur Anzeigeeinheit', 'die', 'Details zur Anzeigeeinheit' ),
+            ...defaultSecurityLevel
+        },
+
+        rechnungsempfaenger: {
+            type: EnumFieldTypes.ftString,
+            rules: [ 
+                { required: true, message: 'Bitte geben Sie die Art des Rechnungsempfängers an.' },
+            ],
+            ...FieldNamesAndMessages('die', 'Definition Rechnungsempfänger', 'die', 'Definitionen Rechnungsempfänger' ),
+            ...defaultSecurityLevel
+        },
+
+        rechnungFirma1: {
+            type: EnumFieldTypes.ftString,
+            rules: [
+                { required: true, message: 'Bitte geben Sie mindestens die erste Adressenzeile an.' },    
+            ],
+            ...FieldNamesAndMessages('die', 'Rechnungsanschrift (Zeile 1)', 'die', 'Rechnungsanschrift (Zeile 1)'),
+            ...defaultSecurityLevel
+        },
+        rechnungFirma2: {
+            type: EnumFieldTypes.ftString,
+            rules: [ ],
+            ...FieldNamesAndMessages('die', 'Rechnungsanschrift (Zeile 2)', 'die', 'Rechnungsanschrift (Zeile 2)'),
+            ...defaultSecurityLevel
+        },
+        rechnungFirma3: {
+            type: EnumFieldTypes.ftString,
+            rules: [ ],
+            ...FieldNamesAndMessages('die', 'Rechnungsanschrift (Zeile 3)', 'die', 'Rechnungsanschrift (Zeile 3)'),
+            ...defaultSecurityLevel
+        },
+
+        rechnungStrasse: {
+            type: EnumFieldTypes.ftString,
+            rules: [
+                { required: true, message: 'Bitte geben Sie die Strasse an.' },    
+            ],
+            ...FieldNamesAndMessages('die', 'Strasse der Rechnungsanschrift', 'die', 'Strasse der Rechnungsanschrift'),
+            ...defaultSecurityLevel
+        },
+
+        rechnungPlz: {
+            type: EnumFieldTypes.ftString,
+            rules: [
+                { required: true, message: 'Bitte geben Sie die PLZ an.' },
+                { min: 5, max: 5, message: 'Bitte geben Sie die PLZ 5-stellig an.' },
+            ],
+            ...FieldNamesAndMessages('die', 'Postleitzahl der Rechnungsanschrift', 'die', 'Postleitzahlen der Rechnungsanschrift'),
+            ...defaultSecurityLevel
+        },
+
+        rechnungOrt: {
+            type: EnumFieldTypes.ftString,
+            rules: [
+                { required: true, message: 'Bitte geben Sie den Ort an.' },    
+            ],
+            ...FieldNamesAndMessages('der', 'Ort der Rechnungsanschrift', 'die', 'Orte', { onUpdate: 'den Ort der Rechnungsanschrift' }),
+            ...defaultSecurityLevel
+        },
+
+        rechnungLand: {
+            type: EnumFieldTypes.ftString,
+            rules: [
+                { required: true, message: 'Bitte geben Sie das Land an.' },
+            ],
+            ...FieldNamesAndMessages('das', 'Land der Rechnungsanschrift', 'die', 'Länder der Rechnungsanschrift'),
+            ...defaultSecurityLevel
+        },
+
+        rechnungDistributor: {
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: Adressen,
+                hasDescription: true,                
+                hasImage: false,
+                linkable: true,
+                link: (doc) => `/allgemein/adressen/${doc._id}`
+            } as IAppLink<Adresse>,
+            rules: [
+                { required: true, message: 'Bitte geben Sie den Distributor an.' },
+            ],
+            ...FieldNamesAndMessages('der', 'Distributor', 'die', 'Distributoren', { onUpdate: 'den Distributor' }),
+            ...defaultSecurityLevel
+        },
     },
 
-    layouts: {
+    layouts: {       
         default: {
             title: 'Standard-layout',
             description: 'dies ist ein universallayout für alle Operationen',
 
-            visibleBy: ['EVERYBODY'],
+            visibleBy: ['EMPLOYEE'],
             
             elements: [
                 { controlType: EnumControltypes.ctColumns, columns: [
@@ -222,16 +445,39 @@ export const Projekte = Consulting.createApp<Projekt>({
                         ]},
                         { controlType: EnumControltypes.ctColumns, columns: [
                             { columnDetails: { xs:24, sm:12, md:12, lg: 12 }, elements: [
-                                { field: 'aufwandPlan', title: 'Projektaufwand', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-list'},
+                                { field: 'aufwandPlanMinuten', title: 'Projektaufwand', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-list', 
+                                    render: renderSimpleWidgetAufwandMitEinheit
+                                },
                             ]},
                             { columnDetails: { xs:24, sm:12, md:12, lg: 12 }, elements: [
-                                { field: 'aufwandIst', title: 'Ist', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-tasks'},
+                                { field: 'aufwandIstMinuten', title: 'Ist', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-tasks',
+                                    render: renderSimpleWidgetAufwandMitEinheit
+                                },
                             ]},
                             { columnDetails: { push:12, xs:24, sm:12, md:12  }, elements: [
-                                { field: 'aufwandRest', title: 'Rest', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-list-ul' },
+                                { field: 'aufwandRestMinuten', title: 'Rest', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-list-ul', 
+                                    render: renderSimpleWidgetAufwandMitEinheit
+                                },
                             ]}
                         ]}
                     ]}
+                ]},
+                { title: 'Projekteinstellungen', controlType: EnumControltypes.ctCollapsible, elements: [
+                    { field: 'stundenProTag', controlType: EnumControltypes.ctNumberInput },
+                    { field: 'anzeigeeinheit', controlType:EnumControltypes.ctOptionInput, values: Einheiten}
+                ]},
+                { title: 'Kaufmännische Angaben', controlType: EnumControltypes.ctCollapsible, elements: [
+                    { field: 'rechnungsempfaenger', controlType:EnumControltypes.ctOptionInput, values: Rechnungsempfaenger },
+                    { field: 'rechnungDistributor', controlType: EnumControltypes.ctSingleModuleOption, enabled: enableDistributor, visible: enableDistributor },
+                    { field: 'rechnungFirma1', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
+                    { field: 'rechnungFirma2', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
+                    { field: 'rechnungFirma3', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
+                    { field: 'rechnungStrasse', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
+                    { title: 'Postleitzahl, Ort', controlType: EnumControltypes.ctInlineCombination, visible: enableRechnungsanschrift, elements: [
+                        { field: 'rechnungPlz', noTitle: true, controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
+                        { field: 'rechnungOrt', title: 'Ort', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
+                    ]},
+                    { field: 'rechnungLand', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
                 ]},
 
                 { controlType: EnumControltypes.ctReport, reportId: TeilprojekteByProjekt.reportId }
@@ -255,29 +501,137 @@ export const Projekte = Consulting.createApp<Projekt>({
 
     methods: {
         defaults: async function () {
+            const stundenProTag = 8;
+            const defaultEinheit = Einheiten.find( e => e._id === 'tage');
+
+            if (!defaultEinheit) {
+                return {
+                    status: EnumMethodResult.STATUS_ABORT,
+                    statusText: 'Die Standard-Einheit "Tage" konnte nicht in Ihrer Beschreibung gefunden werden.'
+                }
+            }
+
             return {
                 status: EnumMethodResult.STATUS_OKAY,
                 defaults: {
-                    aufwandPlan: 0,
-                    aufwandIst: 0,
-                    aufwandRest: 0,
+                    aufwandPlanMinuten: 0,
+                    aufwandIstMinuten: 0,
+                    aufwandRestMinuten: 0,
                     erloesePlan: 0,
                     erloeseIst: 0,
                     erloeseForecast: 0,
-                    erloeseRest: 0
+                    erloeseRest: 0,
+                    stundenProTag,
+                    anzeigeeinheit: defaultEinheit._id,
+                    anzeigeeinheitDetails: { 
+                        singular: defaultEinheit.title, 
+                        plural: defaultEinheit.pluralTitle || defaultEinheit.title, 
+                        faktor: calcMinutes(1, defaultEinheit as TEinheit, stundenProTag),
+                        precision: (defaultEinheit as TEinheit).options.precision
+                    },
+                    rechnungsempfaenger: 'kunde'
                 }
             }
         },
 
-        onBeforeUpdate: async function (_projektId, NEW, OLD, { hasChanged }) {
-            if (hasChanged('aufwandPlan')) {
-                NEW.aufwandRest = (NEW.aufwandPlan || 0) - (OLD.aufwandIst || 0);
+        onBeforeInsert: async function(NEW) {
+            const einheit = Einheiten.find( e => e._id === NEW.anzeigeeinheit);
+            if (einheit) {
+                NEW.anzeigeeinheitDetails = { 
+                    singular: einheit.title, 
+                    plural: einheit.pluralTitle || einheit.title, 
+                    faktor: calcMinutes(1, einheit as TEinheit, NEW.stundenProTag || 0),
+                    precision: (einheit as TEinheit).options.precision
+                }
+            } else {
+                return { status: EnumMethodResult.STATUS_ABORT, statusText: `Die Anzeigeeinheit "${NEW.anzeigeeinheit}" konnte in Ihrer Beschreibung nicht gefunden werden.` };
+            }
+
+            if (isOneOf(NEW.rechnungsempfaenger, ['kunde', 'distributor'])) {
+                // leeren der Felder für die abweichende Rechnungsaschrift, die ggf. im Dialog zuvor erfasst wurden
+                // und nachträglich wurde die Steuerung umgestellt
+                NEW.rechnungFirma1 = '';
+                NEW.rechnungFirma2 = '';
+                NEW.rechnungFirma3 = '';
+                NEW.rechnungStrasse = '';
+                NEW.rechnungPlz = '';
+                NEW.rechnungOrt = '';
+                NEW.rechnungLand = '';
+            }
+
+            if (isOneOf(NEW.rechnungsempfaenger, ['kunde', 'abweichend'])) {
+                // leeren der Felder für die abweichende Rechnungsaschrift, die ggf. im Dialog zuvor erfasst wurden
+                // und nachträglich wurde die Steuerung umgestellt
+                NEW.rechnungDistributor = [];
             }
 
             return { status: EnumMethodResult.STATUS_OKAY };
         },
 
-        onAfterUpdate: async function (projektId, NEW, _OLD, { session, hasChanged }) {  
+        onBeforeUpdate: async function (_projektId, NEW, OLD, { hasChanged }) {
+            if (hasChanged('aufwandPlanMinuten')) {
+                NEW.aufwandRestMinuten = (NEW.aufwandPlanMinuten || 0) - (OLD.aufwandIstMinuten || 0);
+            }
+
+            if (hasChanged('anzeigeeinheit')) {
+                const einheit = Einheiten.find( e => e._id === NEW.anzeigeeinheit);
+                if (einheit) {
+                    NEW.anzeigeeinheitDetails = {
+                        singular: einheit.title, 
+                        plural: einheit.pluralTitle || einheit.title, 
+                        faktor: calcMinutes(1, einheit as TEinheit, NEW.stundenProTag || 0),
+                        precision: (einheit as TEinheit).options.precision
+                    }
+                } else {
+                    return { status: EnumMethodResult.STATUS_ABORT, statusText: `Die Anzeigeeinheit "${NEW.anzeigeeinheit}" konnte in Ihrer Beschreibung nicht gefunden werden.` };
+                }
+            }
+
+            if (isOneOf(NEW.rechnungsempfaenger, ['kunde', 'distributor'])) {
+                // leeren der Felder für die abweichende Rechnungsaschrift, die ggf. im Dialog zuvor erfasst wurden
+                // und nachträglich wurde die Steuerung umgestellt
+                NEW.rechnungFirma1 = '';
+                NEW.rechnungFirma2 = '';
+                NEW.rechnungFirma3 = '';
+                NEW.rechnungStrasse = '';
+                NEW.rechnungPlz = '';
+                NEW.rechnungOrt = '';
+                NEW.rechnungLand = '';
+            }
+
+            if (isOneOf(NEW.rechnungsempfaenger, ['kunde', 'abweichend'])) {
+                // leeren der Felder für die abweichende Rechnungsaschrift, die ggf. im Dialog zuvor erfasst wurden
+                // und nachträglich wurde die Steuerung umgestellt
+                NEW.rechnungDistributor = [];
+            }
+
+            return { status: EnumMethodResult.STATUS_OKAY };
+        },
+
+        onAfterUpdate: async function (projektId, NEW, _OLD, { session, hasChanged }) {
+            if (hasChanged('stundenProTag')) {
+                // wird die Anzahl der Stunden pro Tag geändert,
+                // so muss die Definition in die TPs nachgetriggert werden
+                const tps = await Teilprojekte.raw().find({ 'projekt._id' : projektId }, { session }).toArray();
+                tps.forEach( tp => {
+                    Teilprojekte.updateOne(tp._id, { 
+                        stundenProTag: NEW.stundenProTag,                        
+                    });
+                });
+            }
+
+            if (hasChanged('anzeigeeinheit')) {
+                // wird die Anzeigeeinheit geändert,
+                // so muss die Definition in die TPs nachgetriggert werden
+                const tps = await Teilprojekte.raw().find({ 'projekt._id' : projektId }, { session }).toArray();
+                tps.forEach( tp => {
+                    Teilprojekte.updateOne(tp._id, { 
+                        anzeigeeinheit: NEW.anzeigeeinheit,
+                        anzeigeeinheitDetails: NEW.anzeigeeinheitDetails
+                    });
+                });
+            }
+
             if (hasChanged('status')) {
                 // soll das Projekt abgesagt werden, so muss geprüft werden, ob es nicht schon
                 // Einzelleistungen bestätigt oder abgerechnet wurden. In diesem Fall

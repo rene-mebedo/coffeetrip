@@ -2,21 +2,21 @@ import React from 'react';
 
 import Input from 'antd/lib/input';
 
-import { GenericInputWrapper, IGenericControlProps } from "./generic-input-wrapper";
+import { GenericControlWrapper, IGenericControlProps } from "./generic-control-wrapper";
 
 
 export const StringInput = (props: IGenericControlProps) => {
     return (
-        <GenericInputWrapper {...props} >
+        <GenericControlWrapper { ...props } className="mbac-input mbac-string" >
             <Input  />
-        </GenericInputWrapper>
+        </GenericControlWrapper>
     );
 }
 
 export const TextInput = (props: IGenericControlProps) => {
     return (
-        <GenericInputWrapper {...props} >
+        <GenericControlWrapper { ...props } className="mbac-input mbac-text" >
             <Input.TextArea rows={4} />
-        </GenericInputWrapper>
+        </GenericControlWrapper>
     );
 }

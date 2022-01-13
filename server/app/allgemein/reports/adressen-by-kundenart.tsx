@@ -8,14 +8,14 @@ import { TOptionValues } from '/imports/api/types/app-types';
 import { IReportRendererExtras } from '/imports/api/types/world';
 
 import { Adresse } from '../apps/adressen';
-import { Kundenarten } from '../apps/kundenarten';
+import { Adressarten, AdressartenEnum } from '../apps/kundenarten';
 
 export const ReportAdressenByKundenart = MebedoWorld.createReport<Adresse, Adresse>('adressen-by-kundenart', {
 
     type: 'table',
     
-    title: 'Adressen gemäß Kundenart',
-    description: 'Zeigt alle Adressen der angegebenen Kundenart.',
+    title: 'Adressen gemäß Adressart',
+    description: 'Zeigt alle Adressen der angegebenen Adressart.',
 
     /*sharedWith: [],
     sharedWithRoles: ['EVERYBODY'],*/
@@ -24,14 +24,14 @@ export const ReportAdressenByKundenart = MebedoWorld.createReport<Adresse, Adres
 
     liveDatasource: ({ isServer, publication, currentUser, document }) => {
         if (isServer && !currentUser) return publication?.ready();
-
+        
         const Adressen = getAppStore('adressen');
         
-        return Adressen.find({ kundenart: document?.kundenart }, { sort: { title: 1 } });
+        return Adressen.find({ adressart: document?.adressart }, { sort: { title: 1 } });
     },
 
     injectables: {
-        Kundenarten
+        Adressarten
     },
 
     columns: [
@@ -51,21 +51,21 @@ export const ReportAdressenByKundenart = MebedoWorld.createReport<Adresse, Adres
             }
         },
         {
-            title: 'Kundenart',
-            dataIndex: 'kundenart',
-            key: 'kundenart',
-            render: (kundenart: string, _adresse, { injectables, isExport }: IReportRendererExtras ) => {
-                const { Kundenarten }: { Kundenarten?: TOptionValues } = injectables;
-                const adrKundenart = Kundenarten && Kundenarten.find( ({_id}:{_id:any}) => _id == kundenart );
+            title: 'Adressart',
+            dataIndex: 'adressart',
+            key: 'adressart',
+            render: (adressart: string, _adresse, { injectables, isExport }: IReportRendererExtras ) => {
+                const { Adressarten }: { Adressarten?: TOptionValues<AdressartenEnum> } = injectables;
+                const art = Adressarten && Adressarten.find( ({_id}:{_id:any}) => _id == adressart );
                 
-                if (!adrKundenart) {
-                    return isExport ? '!!' + kundenart : <Tag>{'!!' + kundenart}</Tag>
+                if (!art) {
+                    return isExport ? '!!' + adressart : <Tag>{'!!' + adressart}</Tag>
                 }
                 return (
                     isExport
-                        ? adrKundenart.title
-                        : <Tag style={ { color: adrKundenart.color as string, backgroundColor: adrKundenart.backgroundColor as string, borderColor: adrKundenart.color as string}}>
-                            {adrKundenart.title}
+                        ? art.title
+                        : <Tag style={ { color: art.color as string, backgroundColor: art.backgroundColor as string, borderColor: art.color as string}}>
+                            {art.title}
                         </Tag>
                 );
             },

@@ -11,7 +11,28 @@ import { Teilprojekt } from '../apps/teilprojekte';
 import { Projekt } from '../apps/projekte';
 import { Projektstati } from '../apps/projektstati';
 import { AktivitaetenByTeilprojekte } from './aktivitaeten-by-teilprojekte';
+import { AppData } from '/imports/api/types/app-types';
 
+/**
+ * Darstellung des Aufwands für die entspr. Spalte
+ * 
+ * @param aufwand 
+ * @param akt 
+ * @param param2 
+ * @returns 
+ */
+ const renderAufwand = (aufwand: any, tp: AppData<Teilprojekt>/*, { injectables }: TInjectables*/) => {
+    //const Einheiten: TOptionValues = injectables.Einheiten;
+    //const einheit = Einheiten.find( ({_id}:{_id:any}) => _id == akt.einheit );
+    const { singular, plural, faktor, precision } = tp.anzeigeeinheitDetails;
+    const displayAufwand = +(Number(aufwand / faktor).toFixed(precision || 0));
+    
+    //if (!einheit) {
+    //    return isExport ? (aufwand || '0') + '!!' + tp.einheit : <Tag>{'!!' + (aufwand || '0 ') + tp.einheit}</Tag>
+    //}
+
+    return (displayAufwand || '0') + ' ' + (aufwand === 1 ? singular : plural);
+}
 
 export const TeilprojekteByProjekt = MebedoWorld.createReport<Teilprojekt, Projekt>('teilprojekte-by-projekt', {
 
@@ -58,6 +79,27 @@ export const TeilprojekteByProjekt = MebedoWorld.createReport<Teilprojekt, Proje
                         : <a href={`/consulting/teilprojekte/${_id}`}>{title}</a>
                 );
             }
+        },
+        {
+            title: 'Aufwand',
+            dataIndex: 'aufwandPlanMinuten',
+            key: 'aufwandPlanMinuten',
+            align: 'right',
+            render: renderAufwand
+        },
+        {
+            title: 'Ist',
+            dataIndex: 'aufwandIstMinuten',
+            key: 'aufwandIstMinuten',
+            align: 'right',
+            render: renderAufwand
+        },
+        {
+            title: 'Rest',
+            dataIndex: 'aufwandRestMinuten',
+            key: 'aufwandRestMinuten',
+            align: 'right',
+            render: renderAufwand
         },
         {
             title: 'Status',
@@ -138,6 +180,24 @@ export const TeilprojekteByProjekt = MebedoWorld.createReport<Teilprojekt, Proje
 
             onExecute: { 
                 redirect: '/consulting/teilprojekte/{{rowdoc._id}}'
+            }
+        },
+        {
+            title: 'Neue Aktivität',
+            inGeneral: false,
+            type: 'more',
+
+            description: 'Neuzugang einer weiteren Aktivität',
+            icon: 'fas fa-plus',
+            //iconOnly: true,
+            
+            visibleAt: ['Document'],
+
+            visibleBy: [ 'ADMIN', 'EMPLOYEE' ],
+            executeBy: [ 'ADMIN', 'EMPLOYEE' ],
+
+            onExecute: { 
+                redirect: '/consulting/aktivitaeten/new?tpId={{rowdoc._id}}'
             }
         },
         /*{

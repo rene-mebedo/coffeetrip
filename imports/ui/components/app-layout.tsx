@@ -10,13 +10,13 @@ import { OptionInput } from './layout-controls/option-input';
 import { Collapsible } from './layout-controls/collapsible';
 import { DividerControl } from './layout-controls/divider';
 
-import { AppData, IApp, IAppLayoutElementReport, TAppFields, TAppLayoutElement } from '/imports/api/types/app-types';
+import { IApp, IAppLayoutElementReport, TAppFields, TAppLayoutElement } from '/imports/api/types/app-types';
 import { ReportControl } from './layout-controls/report';
-import { NumberInput } from './layout-controls/number-input';
+import { CurrencyInput, NumberInput } from './layout-controls/number-input';
 import { WidgetSimple } from './layout-controls/widget-simple';
 import { Columns } from './layout-controls/columns';
-import { InlineCombination } from './layout-controls/inline-combination';
-import { IMethodOnValuesChange } from './layout-controls/generic-input-wrapper';
+import { InlineCombination, Spacer } from './layout-controls/inline-combination';
+import { IMethodOnValuesChange } from './layout-controls/generic-control-wrapper';
 import { IGenericDocument } from '/imports/api/lib/core';
 import { IWorldUser } from '/imports/api/types/world';
 
@@ -25,7 +25,7 @@ export const getLabel = (elem: TAppLayoutElement<any>, fields: TAppFields<any>):
 
     if (elem.title) return elem.title;
 
-    return fields[elem.field].title || '';
+    return fields[elem.field as string].title || '';
 }
 
 export interface IAppLayoutElementProps {
@@ -39,31 +39,34 @@ export interface IAppLayoutElementProps {
     currentUser: IWorldUser
 }
 
-export const LayoutElements = ({ elements, app, defaults, document, mode, onValuesChange, currentUser }:IAppLayoutElementProps): JSX.Element => {
+export const LayoutElements = (props:IAppLayoutElementProps): JSX.Element => {
+    const { elements } = props;
 
     return <Fragment>
             {elements.map( (elem: TAppLayoutElement<any>, index: number) => { 
-                const key = elem.field || index;
+                const key: string = (elem.field as string) || (index+'');
 
-                if (elem.controlType === EnumControltypes.ctStringInput ) return <StringInput currentUser={currentUser} key={key} elem={elem} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
-                if (elem.controlType === EnumControltypes.ctTextInput ) return <TextInput currentUser={currentUser} key={key} elem={elem} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
-                if (elem.controlType === EnumControltypes.ctNumberInput ) return <NumberInput currentUser={currentUser} key={key} elem={elem} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
-                if (elem.controlType === EnumControltypes.ctHtmlInput ) return <HtmlInput currentUser={currentUser} key={key} elem={elem} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
-                if (elem.controlType === EnumControltypes.ctOptionInput ) return <OptionInput currentUser={currentUser} key={key} elem={elem} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
-                if (elem.controlType === EnumControltypes.ctDateInput ) return <DateInput currentUser={currentUser} key={key} elem={elem} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
-                if (elem.controlType === EnumControltypes.ctDatespanInput ) return <DatespanInput currentUser={currentUser} key={key} elem={elem} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
-                if (elem.controlType === EnumControltypes.ctYearInput ) return <YearInput currentUser={currentUser} key={key} elem={elem} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
+                if (elem.controlType === EnumControltypes.ctStringInput ) return <StringInput {...props} key={key} elem={elem} />
+                if (elem.controlType === EnumControltypes.ctTextInput ) return <TextInput {...props} key={key} elem={elem} />
+                if (elem.controlType === EnumControltypes.ctNumberInput ) return <NumberInput {...props} key={key} elem={elem} />
+                if (elem.controlType === EnumControltypes.ctCurrencyInput ) return <CurrencyInput {...props} key={key} elem={elem} />
+                if (elem.controlType === EnumControltypes.ctHtmlInput ) return <HtmlInput {...props} key={key} elem={elem} />
+                if (elem.controlType === EnumControltypes.ctOptionInput ) return <OptionInput {...props} key={key} elem={elem} />
+                if (elem.controlType === EnumControltypes.ctDateInput ) return <DateInput {...props} key={key} elem={elem} />
+                if (elem.controlType === EnumControltypes.ctDatespanInput ) return <DatespanInput {...props} key={key} elem={elem} />
+                if (elem.controlType === EnumControltypes.ctYearInput ) return <YearInput {...props} key={key} elem={elem} />
 
-                if (elem.controlType === EnumControltypes.ctCollapsible ) return <Collapsible currentUser={currentUser} key={key} elem={elem} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
-                if (elem.controlType === EnumControltypes.ctDivider ) return <DividerControl currentUser={currentUser} key={key} elem={elem} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
-                if (elem.controlType === EnumControltypes.ctInlineCombination ) return <InlineCombination currentUser={currentUser} key={key} elem={elem} app={app} defaults={defaults} document={document} mode={mode} onValuesChange={onValuesChange} />
+                if (elem.controlType === EnumControltypes.ctCollapsible ) return <Collapsible {...props} key={key} elem={elem} />
+                if (elem.controlType === EnumControltypes.ctDivider ) return <DividerControl {...props} key={key} elem={elem} />
+                if (elem.controlType === EnumControltypes.ctInlineCombination ) return <InlineCombination {...props} key={key} elem={elem} />
+                if (elem.controlType === EnumControltypes.ctSpacer ) return <Spacer {...props} key={key} elem={elem} />
 
-                if (elem.controlType === EnumControltypes.ctSingleModuleOption ) return <SingleModuleOption currentUser={currentUser} key={key} elem={elem} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
+                if (elem.controlType === EnumControltypes.ctSingleModuleOption ) return <SingleModuleOption {...props} key={key} elem={elem} />
 
-                if (elem.controlType === EnumControltypes.ctReport ) return <ReportControl currentUser={currentUser} key={key} environment='Document' reportId={(elem as IAppLayoutElementReport<any>).reportId} title={elem.title} mode={mode} defaults={defaults as unknown as AppData<any>} document={document as unknown as AppData<any>} />
-                if (elem.controlType === EnumControltypes.ctColumns ) return <Columns currentUser={currentUser} key={key} elem={elem} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
-                if (elem.controlType === EnumControltypes.ctGoogleMap ) return <GoogleMap key={key} elem={elem} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
-                if (elem.controlType === EnumControltypes.ctWidgetSimple ) return <WidgetSimple currentUser={currentUser} key={key} elem={elem} app={app} mode={mode} defaults={defaults} document={document} onValuesChange={onValuesChange} />
+                if (elem.controlType === EnumControltypes.ctReport ) return <ReportControl {...props} key={key} elem={elem} environment='Document' reportId={(elem as IAppLayoutElementReport<any>).reportId} title={elem.title} />
+                if (elem.controlType === EnumControltypes.ctColumns ) return <Columns {...props} key={key} elem={elem} />
+                if (elem.controlType === EnumControltypes.ctGoogleMap ) return <GoogleMap {...props} key={key} elem={elem} />
+                if (elem.controlType === EnumControltypes.ctWidgetSimple ) return <WidgetSimple {...props} key={key} elem={elem} />
 
                 return <div key={key}>Unknown Element controlType: {elem.controlType}</div>;
             })

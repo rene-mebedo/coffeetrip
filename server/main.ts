@@ -17,6 +17,7 @@ import './app/consulting/apps/aktivitaeten';
 import './app/allgemein';
 import './app/allgemein/apps/adressen';
 import './app/allgemein/apps/kontakte';
+import './app/allgemein/apps/preislisten';
 
 import './app/intern';
 import './app/intern/apps/urlaubskonto';

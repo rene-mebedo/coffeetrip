@@ -1,4 +1,4 @@
-import { IMethodStatus, IReport } from "./world";
+import { IMethodStatus, IReport, TMoment } from "./world";
 import { EnumControltypes, EnumDocumentModes, EnumFieldTypes, EnumMethodResult } from "../consts";
 import { IGenericDocument } from "../lib/core";
 import { App } from "../lib/app";
@@ -19,13 +19,14 @@ export interface IActivitiesReplyToProps {
 
 export type TString = string;
 
-export type TAppLink = Array<{
+export type TAppLinkItem = {
     _id: string
     title: string
     description: string
     link?: string
     imageUrl?: string
-}>
+}
+export type TAppLink = Array<TAppLinkItem>
 
 export interface IAppLink<T> {
     app: App<T> | string, // placing the App or the id as string
@@ -68,7 +69,7 @@ export interface IAutoValueProps<T> {
 export interface IAppField<T> {
     title?: string
     type: EnumFieldTypes,
-    rules: Array<Rule>,
+    rules?: Array<Rule>,
     autoValue?: (props:IAutoValueProps<T>) => any,
     appLink?: IAppLink<any>,
 
@@ -89,7 +90,7 @@ export interface IAppField<T> {
 }
 
 export interface IToolExtras {
-    moment: moment.Moment
+    moment: TMoment
 }
 
 export interface IEnabledProps {
@@ -309,25 +310,29 @@ export interface ITriggerTools<T> {
 
 export interface IDefaultsTriggerExtras<T> extends ITriggerTools<T> {
     session: any,
-    moment: any
+    moment: TMoment
 }
 
 export interface TInsertTriggerExtras<T> extends ITriggerTools<T> {
     session: any,
-    moment: any
+    moment: TMoment
 }
 
 export interface IUpdateTriggerExtras<T> extends ITriggerTools<T> {
     session: any,
-    moment: any
+    moment: TMoment
 }
 
 export interface IRemoveTriggerExtras<T> extends ITriggerTools<T> {
     session: any,
-    moment: any
+    moment: TMoment
 }
 
 export interface IAppMethods<T> {
+    /**
+     * Ermittlung dynamischer Defaults für diese App, die als Rückgabewert
+     * an die Generic übermittelt werden.
+     */
     defaults?: (props: IAppMethodsDefaultProps<T>, triggerExtrags?: IDefaultsTriggerExtras<T>) => Promise<IDefaultAppData<T>>,
 
     onBeforeInsert?: (values: AppData<T>, triggerExtras: TInsertTriggerExtras<T>) => Promise<IAppMethodResult>,

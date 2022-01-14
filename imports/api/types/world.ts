@@ -66,10 +66,12 @@ export interface IChartData {
     options: ChartOptions, data: ChartData
 }
 
+export type TMoment = (momentInput: any) => moment.Moment;
 
 export interface IReportRendererExtras {
     injectables: TInjectables
-    isExport: boolean
+    isExport: boolean,
+    moment: TMoment
 }
 
 export type TColumnRenderer<T> = string | ((columnData: any, doc:AppData<T>, extras: IReportRendererExtras) => string | JSX.Element)
@@ -89,7 +91,7 @@ export interface IReportColumns<T> {
     key: string
     dataIndex: string
     title: string
-    render?: TColumnRenderer<T> //string | ((columnData: any, doc:AppData<any>, extras: IReportRendererExtras) => string | JSX.Element) | undefined
+    render?: TColumnRenderer<T>
     align?: 'left' | 'right' | 'center'
 }
 

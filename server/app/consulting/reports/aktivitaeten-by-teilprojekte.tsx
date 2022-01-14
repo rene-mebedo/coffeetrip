@@ -10,7 +10,7 @@ import { EnumDocumentModes, EnumMethodResult } from '/imports/api/consts';
 import { Teilprojekt } from '../apps/teilprojekte';
 import { Projektstati } from '../apps/projektstati';
 import { Aktivitaet } from '../apps/aktivitaeten';
-import { Einheiten } from '../apps/einheiten';
+import { Einheiten, EinheitenEnum } from '../apps/einheiten';
 import { AppData, IGenericRemoveResult, TInjectables, TOptionValues } from '/imports/api/types/app-types';
 
 /**
@@ -21,7 +21,7 @@ import { AppData, IGenericRemoveResult, TInjectables, TOptionValues } from '/imp
  * @returns 
  */
 const renderAufwand = (aufwand: any, akt: AppData<Aktivitaet>, {injectables, isExport}: {injectables: TInjectables, isExport: boolean}) => {
-    const Einheiten: TOptionValues = injectables.Einheiten;
+    const Einheiten: TOptionValues<EinheitenEnum> = injectables.Einheiten;
     const einheit = Einheiten.find( ({_id}:{_id:any}) => _id == akt.einheit );
     
     if (!einheit) {

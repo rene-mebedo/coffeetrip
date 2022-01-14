@@ -1,14 +1,16 @@
-import { FieldNamesAndMessages } from "/imports/api/lib/helpers";
+import { FieldNamesAndMessages, getAppLinkItem } from "/imports/api/lib/helpers";
 import { defaultSecurityLevel } from "../../security";
 import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
 
 import { Allgemein } from "/server/app/allgemein";
-import { Adressarten, AdressartenEnum } from "./kundenarten";
-import { IGenericApp, IGoogleMapsLocationProps } from "/imports/api/types/app-types";
+import { Adressarten, AdressartenEnum } from "./adressarten";
+import { DefaultAppData, IGenericApp, IGoogleMapsLocationProps, TAppLink } from "/imports/api/types/app-types";
 import { ReportAdressenByKundenart } from "../reports/adressen-by-kundenart";
 import { WidgetAdressenByKundenart } from "../reports/adressen-by-kundenart.widget";
 import { ChartAdressenByKundenart } from "../reports/adressen-by-kundenart.chart";
 import { getAppStore } from "/imports/api/lib/core"; 
+import { Preislisten } from "./preislisten";
+import { JaNeinEnum } from "./ja-nein-optionen";
 
 export interface Adresse extends IGenericApp {
     /**
@@ -41,6 +43,12 @@ export interface Adresse extends IGenericApp {
      * Allgemeine Anschriftsinformation Ort
      */
     ort: string
+
+    /**
+     * Preisliste, die für diese Adresse im weiteren Verlauf
+     * als Vorschlagswert verwandt werden soll
+     */
+    preisliste: TAppLink
 }
 
 
@@ -142,6 +150,21 @@ export const Adressen = Allgemein.createApp<Adresse>({
             ...FieldNamesAndMessages('der', 'Ort', 'die', 'Orte', { onUpdate: 'den Ort' }),
             ...defaultSecurityLevel
         },
+
+        preisliste: {
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'preislisten',
+                hasDescription: true,
+                linkable: true,
+                hasImage: false
+            },
+            rules: [
+                { required: true, message: 'Bitte geben Sie die Preisliste an, die für diese Adresse als Vorschlag verwandt werden soll.' },    
+            ],
+            ...FieldNamesAndMessages('die', 'Preisliste', 'die', 'Preislisten'),
+            ...defaultSecurityLevel
+        }
     },
 
     layouts: {
@@ -187,6 +210,9 @@ export const Adressen = Allgemein.createApp<Adresse>({
                         ]}
                     ]}
                 ]},
+                { title: 'Kaufmännische Angaben', controlType: EnumControltypes.ctCollapsible, collapsedByDefault: false, elements: [
+                    { field: 'preisliste', controlType: EnumControltypes.ctSingleModuleOption }
+                ]}
             ]
         },
     },
@@ -207,9 +233,16 @@ export const Adressen = Allgemein.createApp<Adresse>({
 
     methods: {
         defaults: async function() {
+            let defaults: DefaultAppData<Adresse> = {}
+
+            const preisliste = Preislisten.findOne({ isStandard: JaNeinEnum.ja });
+            if (preisliste){
+                defaults.preisliste = getAppLinkItem(preisliste, { link: '/allgemein/preislisten/' });
+            }
+
             return { 
                 status: EnumMethodResult.STATUS_OKAY,
-                defaults: {}
+                defaults
             }
         },
         

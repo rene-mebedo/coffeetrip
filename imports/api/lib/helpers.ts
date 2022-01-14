@@ -1,3 +1,5 @@
+import { AppData, TAppLink, TAppLinkItem } from "../types/app-types";
+
 interface  IExtras {
     title?: string | null,
     onUpdate?: string | null
@@ -37,4 +39,28 @@ export const FieldNamesAndMessages = (artikel: string, nameSingular: string, art
 	}
 
 	return false;
+}
+
+/**
+ * Generiert einen Single-AppLink Item für die TAppLink Felder
+ * 
+ * @param doc Document, welches zur Generierung des Applink verwandt werden soll
+ * @param options.link Optional: Linkadresse für das Item ohne ID, die dann dynamisch aus dem übergebenen Dokument angehangen wird
+ * @returns 
+ */
+export const getAppLinkItem = (doc: AppData<any>, { link }:{ link: string}): TAppLink => {
+    if (!doc) return [];
+
+    const al: TAppLinkItem = {
+        _id: doc._id,
+        title: doc.title,
+        description: doc.description,
+        imageUrl: doc.imageUrl
+    };
+
+    if (link) {
+        al.link = link + (link.endsWith('/') ? '' : '/') + doc._id;
+    }
+
+    return [al];
 }

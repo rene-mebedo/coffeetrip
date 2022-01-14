@@ -3,6 +3,7 @@ import { App } from "./app";
 import { IApp } from '/imports/api/types/app-types';
 import { IProduct } from '/imports/api/types/world';
 import { ProductSchema } from './schemas';
+import { isString } from "./basics";
 
 export class Product {
     private world: World;
@@ -24,16 +25,14 @@ export class Product {
         this.productId = Products.insert(p);
     }
 
-    public createApp<T>(appDef: IApp<T>): App<T> {
-        const app = new App(this.world, this, appDef);
-        //const Products = this.world.productCollection;
-
-        /*Products.update(this.productId, {
-            $push: {
-                apps: { _id: app.appId, title: appDef.title, icon: appDef.icon, position: appDef.position || 1 } 
-            }
-        })*/
-
-        return app;
+    public createApp<T>(appDef: IApp<T>): App<T>
+    public createApp<T>(id: string, appDef: IApp<T>): App<T>
+    public createApp<T>(idOrAppDef: string | IApp<T>, appDef?: IApp<T>): App<T> {
+        if (isString(idOrAppDef) && appDef) {
+            appDef._id = idOrAppDef as string;
+            return new App(this.world, this, appDef);
+        } else {
+            return new App(this.world, this, idOrAppDef as IApp<T>);
+        }
     }
 }

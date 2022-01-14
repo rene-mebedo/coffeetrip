@@ -10,8 +10,8 @@ import { Projektstati } from "./projektstati";
 import { TeilprojekteByProjekt } from "../reports/teilprojekte-by-projekt";
 import { Teilprojekte } from "./teilprojekte";
 import { ProjekteByUser } from "../reports/projekte-by-user";
-import { calcMinutes, Einheiten, TEinheit } from "./einheiten";
-import { renderSimpleWidgetAufwandMitEinheit } from "./_helpers";
+import { calcMinutes, Einheiten, EinheitenEnum, TEinheit } from "./einheiten";
+import { renderSimpleWidgetAufwandMitEinheit, renderSimpleWidgetCurrency } from "./_helpers";
 import { Rechnungsempfaenger } from "./rechnungsempfaenger";
 
 /**
@@ -179,7 +179,7 @@ export const Projekte = Consulting.createApp<Projekt>({
     },
     
     sharedWith: [],
-    sharedWithRoles: ['EMPLOYEE'],
+    sharedWithRoles: ['EMPLOYEE', 'ADMIN'],
 
     fields: {
         title: {
@@ -431,16 +431,24 @@ export const Projekte = Consulting.createApp<Projekt>({
                     { columnDetails: { xs:24, sm:24, md:24, lg:6, xl:8, xxl:8 }, elements: [
                         { controlType: EnumControltypes.ctColumns, columns: [
                             { columnDetails: { xs:24, sm:12, md:12, lg: 12, xl:12, xxl:12 }, elements: [
-                                { field: 'erloesePlan', title: 'Projekterlöse (Plan)', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-dollar-sign'},
+                                { field: 'erloesePlan', title: 'Projekterlöse (Plan)', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-dollar-sign',
+                                    render: renderSimpleWidgetCurrency
+                                },
                             ]},
                             { columnDetails: { xs:24, sm:12, md:12, lg: 12, xl:12, xxl:12 }, elements: [
-                                { field: 'erloeseIst', title: 'Ist', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-file-invoice-dollar'},
+                                { field: 'erloeseIst', title: 'Ist', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-file-invoice-dollar',
+                                render: renderSimpleWidgetCurrency
+                            },
                             ]},
                             { columnDetails: { xs:24, sm:12, md:12, lg: 12, xl:12, xxl:12 }, elements: [
-                                { field: 'erloeseForecast', title: 'Forecast', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-funnel-dollar'},
+                                { field: 'erloeseForecast', title: 'Forecast', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-funnel-dollar',
+                                render: renderSimpleWidgetCurrency
+                            },
                             ]},
                             { columnDetails: { xs:24, sm:12, md:12, lg: 12, xl:12, xxl:12 }, elements: [
-                                { field: 'erloeseRest', title: 'Rest', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-search-dollar' },
+                                { field: 'erloeseRest', title: 'Rest', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-search-dollar',
+                                render: renderSimpleWidgetCurrency
+                            },
                             ]}
                         ]},
                         { controlType: EnumControltypes.ctColumns, columns: [
@@ -502,7 +510,7 @@ export const Projekte = Consulting.createApp<Projekt>({
     methods: {
         defaults: async function () {
             const stundenProTag = 8;
-            const defaultEinheit = Einheiten.find( e => e._id === 'tage');
+            const defaultEinheit = Einheiten.find( e => e._id === EinheitenEnum.tage);
 
             if (!defaultEinheit) {
                 return {
@@ -568,9 +576,13 @@ export const Projekte = Consulting.createApp<Projekt>({
             return { status: EnumMethodResult.STATUS_OKAY };
         },
 
-        onBeforeUpdate: async function (_projektId, NEW, OLD, { hasChanged }) {
-            if (hasChanged('aufwandPlanMinuten')) {
-                NEW.aufwandRestMinuten = (NEW.aufwandPlanMinuten || 0) - (OLD.aufwandIstMinuten || 0);
+        onBeforeUpdate: async function (_projektId, NEW, _OLD, { hasChanged, currentValue }) {
+            if (hasChanged('aufwandPlanMinuten') || hasChanged('aufwandIstMinuten')) {
+                NEW.aufwandRestMinuten = currentValue('aufwandPlanMinuten') - currentValue('aufwandIstMinuten');
+            }
+
+            if (hasChanged('erloesePlan') || hasChanged('erloeseIst')) {
+                NEW.erloeseRest = currentValue('erloesePlan') - currentValue('erloeseIst')
             }
 
             if (hasChanged('anzeigeeinheit')) {

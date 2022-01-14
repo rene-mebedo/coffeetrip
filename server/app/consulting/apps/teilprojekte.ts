@@ -2,7 +2,7 @@ import { FieldNamesAndMessages, isOneOf } from "/imports/api/lib/helpers";
 import { defaultSecurityLevel } from "../../security";
 import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
 
-import { DefaultAppData, IAppLink, IGenericApp, TAppLink } from "/imports/api/types/app-types";
+import { DefaultAppData, IAppLink, IGenericApp, TAppLink, UpdateableAppData } from "/imports/api/types/app-types";
 import { Consulting } from "..";
 import { StatusField } from "../../akademie/apps/seminare";
 import { Projektstati } from "./projektstati";
@@ -286,7 +286,7 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
             executeBy: [ 'ADMIN', 'EMPLOYEE' ],
 
             onExecute: { redirect: '/consulting/teilprojekte/new' }
-        },
+        }
     },
 
     methods: {
@@ -343,6 +343,10 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
             if (hasChanged('aufwandPlanMinuten') || hasChanged('aufwandIstMinuten')) {
                 NEW.aufwandRestMinuten = currentValue('aufwandPlanMinuten') - currentValue('aufwandIstMinuten');
             }
+
+            if (hasChanged('erloesePlan') || hasChanged('erloeseIst')) {
+                NEW.erloeseRest = currentValue('erloesePlan') - currentValue('erloeseIst')
+            }
             
             if (hasChanged('status')) {
                 if ( OLD.status == 'abgerechnet' ) {
@@ -386,13 +390,21 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
                 }
             }
 
-            if (hasChanged('aufwandPlanMinuten') || hasChanged('aufwandIstMinuten')) {
+            if (hasChanged('aufwandPlanMinuten') || hasChanged('aufwandIstMinuten') ||
+                 hasChanged('erloesePlan') || hasChanged('erloeseIst')) {
+
                 const prjId = OLD.projekt[0]._id;
                 const prj = await Projekte.raw().findOne({ _id: prjId }, { session } );
-                const aufwandPlanMinuten:number = (prj.aufwandPlanMinuten || 0) + (NEW.aufwandPlanMinuten || 0) - (OLD.aufwandPlanMinuten || 0);
-                const aufwandIstMinuten:number = (prj.aufwandIstMinuten || 0) + (NEW.aufwandIstMinuten || 0) - (OLD.aufwandIstMinuten || 0);
+                let prjData: UpdateableAppData<Projekt> = {};
 
-                await Projekte.updateOne(prjId, { aufwandPlanMinuten, aufwandIstMinuten }, { session });
+                if (hasChanged('aufwandPlanMinuten')) prjData.aufwandPlanMinuten = prj.aufwandPlanMinuten + NEW.aufwandPlanMinuten - OLD.aufwandPlanMinuten;
+                if (hasChanged('aufwandIstMinuten')) prjData.aufwandIstMinuten = prj.aufwandIstMinuten + NEW.aufwandIstMinuten - OLD.aufwandIstMinuten;
+                if (hasChanged('erloesePlan')) prjData.erloesePlan = prj.erloesePlan + NEW.erloesePlan - OLD.erloesePlan;
+                if (hasChanged('erloeseIst')) prjData.erloeseIst = prj.erloeseIst + NEW.erloeseIst - OLD.erloeseIst;
+
+                if (Object.keys(prjData).length) {
+                    await Projekte.updateOne(prjId, prjData, { session });
+                }
             }
 
             return { status: EnumMethodResult.STATUS_OKAY };

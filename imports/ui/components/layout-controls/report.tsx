@@ -32,6 +32,7 @@ import Affix from 'antd/lib/affix';
 import { Bar, Line, Pie } from 'react-chartjs-2';
 import { GenericControlWrapper, IGenericControlProps } from './generic-control-wrapper';
 
+import moment from 'moment';
 
 // dummyfoo was added to use getAppstore, check, Match and <Tag> in LiveDatasource and Report Actions on the client and server
 export const dummyfoo = (): JSX.Element => {
@@ -113,7 +114,7 @@ export class ReportControl extends React.Component<IReportControlProps, IReportC
                             }
 
                             c.render = function renderColumn(col, doc, { isExport = false }) {
-                                return (renderer as Function)(col, doc, { injectables: report.injectables, isExport });
+                                return (renderer as Function)(col, doc, { injectables: report.injectables, isExport, moment });
                             }
                         };
                         
@@ -253,7 +254,7 @@ const executeAction = (onExecute: IReportActionExecution, mode: EnumDocumentMode
                 + data?.map((doc: any) => {
                     return columns?.filter( ({key}) => key && key.substring(0,2) != '__' ).map( c => {
                         if (c.render) {
-                            return (c.render as Function)(doc[c.dataIndex], doc, { isExport/*renderExport*/: true, injectables });
+                            return (c.render as Function)(doc[c.dataIndex], doc, { isExport/*renderExport*/: true, injectables, moment });
                         }
                         return doc[c.dataIndex];
                     }).join('\t')

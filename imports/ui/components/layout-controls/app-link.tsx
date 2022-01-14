@@ -19,19 +19,17 @@ import CloseOutlined from '@ant-design/icons/CloseOutlined';
 
 const { Option } = Select;
 
-import { IAppField, IAppLink, IGenericAppLinkOptionsResult } from '/imports/api/types/app-types';
+import { IAppField, IAppLayoutElementAppLink, IAppLink, IGenericAppLinkOptionsResult } from '/imports/api/types/app-types';
 import { GenericControlWrapper, IGenericControlProps } from './generic-control-wrapper';
 
 export interface IAppLinkControlProps {
-    productId: string,
-    appId: string,
-    fieldId: string,
+    appId: string
+    fieldId: string
     
     mode: EnumDocumentModes,
     
     value?: Array<any>,
 
-    //targetProductId: string,
     targetAppId: string
     onChange?: (newValues:Array<{[key:string]:any}>) => void,
 
@@ -49,8 +47,7 @@ export interface IAppLinkControlState {
     options: Array<IGenericDocument> | undefined
 }
 
-class AppLinkInput extends React.Component<IAppLinkControlProps, IAppLinkControlState> {
-    //private selectRef = React.createRef<HTMLDivElement>();
+class GenericAppLinkInput extends React.Component<IAppLinkControlProps, IAppLinkControlState> {
     private onSearch: () => void;
 
     constructor(props: IAppLinkControlProps){
@@ -64,8 +61,6 @@ class AppLinkInput extends React.Component<IAppLinkControlProps, IAppLinkControl
             fetching: false,
             options: []
         }
-
-        //this.selectRef = React.createRef<HTMLDivElement>();
 
         this.onSearch = debounce( (currentInput: string) => {
             const { value } = this.state;
@@ -104,7 +99,7 @@ class AppLinkInput extends React.Component<IAppLinkControlProps, IAppLinkControl
             title: found.title,
             imageUrl: found.imageUrl,
             description: found.description,
-            link: found.link //`/records/${targetProductId}/${targetModuleId}/${v.value}`
+            link: found.link
         }]) || [];
         this.setState({ value: newValues, currentInput: '' });
 
@@ -162,7 +157,6 @@ class AppLinkInput extends React.Component<IAppLinkControlProps, IAppLinkControl
 
             { disabled || mode === 'SHOW' || (value || []).length >= maxItems ? null :
                 <Select
-                    //ref={this.selectRef}
                     showSearch
                     value={currentInput}
                     filterOption={false}
@@ -189,9 +183,12 @@ class AppLinkInput extends React.Component<IAppLinkControlProps, IAppLinkControl
     }
 }
 
+/**
+ * @deprecated
+ */
 export const SingleModuleOption = (props: IGenericControlProps) => {
     const { elem, app, mode } = props;
-    const { _id: appId, productId, fields } = app;
+    const { _id: appId, fields } = app;
     
     const fieldDefinition: IAppField<any> = fields[elem.field as string];
     const appLink: IAppLink<any> = fieldDefinition.appLink as IAppLink<any>;
@@ -200,8 +197,7 @@ export const SingleModuleOption = (props: IGenericControlProps) => {
 
     return (
         <GenericControlWrapper {...props} className="mbac-input mbac-app-link">
-            <AppLinkInput
-                productId={productId as string}
+            <GenericAppLinkInput
                 appId={appId as string}
                 fieldId={elem.field as string}
 
@@ -214,6 +210,36 @@ export const SingleModuleOption = (props: IGenericControlProps) => {
                 linkable={appLink.linkable}
 
                 maxItems={1}
+            />
+        </GenericControlWrapper>
+    )
+}
+
+export const AppLinkInput = (props: IGenericControlProps) => {
+    const elem = props.elem as IAppLayoutElementAppLink<any>;
+    const { app, mode } = props;
+    const { _id: appId, fields } = app;
+    
+    const fieldDefinition: IAppField<any> = fields[elem.field as string];
+    const appLink: IAppLink<any> = fieldDefinition.appLink as IAppLink<any>;
+
+    const targetAppId: string = appLink.app as unknown as string;
+
+    return (
+        <GenericControlWrapper {...props} className="mbac-input mbac-app-link">
+            <GenericAppLinkInput
+                appId={appId as string}
+                fieldId={elem.field as string}
+
+                targetAppId={targetAppId}
+
+                mode={mode}
+                
+                hasDescription={appLink.hasDescription}
+                hasImage={appLink.hasImage}
+                linkable={appLink.linkable}
+
+                maxItems={elem.maxItems || 1}
             />
         </GenericControlWrapper>
     )

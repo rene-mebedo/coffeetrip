@@ -33,7 +33,11 @@ export enum EnumControltypes {
     ctSpacer = 'Spacer',
     ctOptionInput = 'Option',
     ctDivider = 'Divider',
+    /**
+     * @deprecated use ctAppLink instead
+     */
     ctSingleModuleOption = 'SingleModuleOption',
+    ctAppLink = 'AppLink',
     ctReport = 'Report',
     ctColumns = 'Columns',
     ctGoogleMap = 'GoogleMap',

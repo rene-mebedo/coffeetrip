@@ -1,8 +1,8 @@
 import { FieldNamesAndMessages, isOneOf } from "/imports/api/lib/helpers";
 import { defaultSecurityLevel } from "../../security";
-import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
+import { EnumControltypes, EnumDocumentModes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
 
-import { AppData, IAppLink, IGenericApp, TAppLink } from "/imports/api/types/app-types";
+import { AppData, IAppLink, IGenericApp, IGetDocumentResult, TAppLink } from "/imports/api/types/app-types";
 import { Consulting } from "..";
 import { StatusField } from "../../akademie/apps/seminare";
 import { Adresse, Adressen } from "../../allgemein/apps/adressen";
@@ -13,6 +13,8 @@ import { ProjekteByUser } from "../reports/projekte-by-user";
 import { calcMinutes, Einheiten, EinheitenEnum, TEinheit } from "./einheiten";
 import { renderSimpleWidgetAufwandMitEinheit, renderSimpleWidgetCurrency } from "./_helpers";
 import { Rechnungsempfaenger } from "./rechnungsempfaenger";
+//import { Preislisten } from "../../allgemein/apps/preislisten";
+import { Meteor } from "meteor/meteor";
 
 /**
  * Steuerung wann die abweichende Rechnungsanschrift oder der Distributor
@@ -157,11 +159,16 @@ export interface Projekt extends IGenericApp {
      * wenn das Feld rechnungsempfaenger den Wert "distributor" hat
      */
     rechnungDistributor: TAppLink
+
+    /**
+     * Preisliste, die als Vorschlag aus dem Kunden herangezogen wird
+     * und für alle weiteren Preisermittlung innerhalb des Projekts
+     * herangezogen wird
+     */
+    preisliste: TAppLink
 }
 
-export const Projekte = Consulting.createApp<Projekt>({
-    _id: 'projekte',
-    
+export const Projekte = Consulting.createApp<Projekt>('projekte', {
     title: "Projekte",
     description: "Alle Projekte der Consulting", 
     icon: 'fa-fw fas fa-atlas',
@@ -203,7 +210,7 @@ export const Projekte = Consulting.createApp<Projekt>({
         kunde: {
             type: EnumFieldTypes.ftAppLink,
             appLink: {
-                app: Adressen,
+                app: 'adressen',
                 hasDescription: true,                
                 hasImage: false,
                 linkable: true,
@@ -398,7 +405,7 @@ export const Projekte = Consulting.createApp<Projekt>({
         rechnungDistributor: {
             type: EnumFieldTypes.ftAppLink,
             appLink: {
-                app: Adressen,
+                app: 'adressen',
                 hasDescription: true,                
                 hasImage: false,
                 linkable: true,
@@ -410,9 +417,24 @@ export const Projekte = Consulting.createApp<Projekt>({
             ...FieldNamesAndMessages('der', 'Distributor', 'die', 'Distributoren', { onUpdate: 'den Distributor' }),
             ...defaultSecurityLevel
         },
+
+        preisliste: {
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'preislisten',
+                hasDescription: true,
+                linkable: true,
+                hasImage: false
+            },
+            rules: [
+                //{ required: true, message: 'Bitte geben Sie die Preisliste an, die für diese Adresse als Vorschlag verwandt werden soll.' },    
+            ],
+            ...FieldNamesAndMessages('die', 'Preisliste', 'die', 'Preislisten'),
+            ...defaultSecurityLevel
+        }
     },
 
-    layouts: {       
+    layouts: {
         default: {
             title: 'Standard-layout',
             description: 'dies ist ein universallayout für alle Operationen',
@@ -424,7 +446,47 @@ export const Projekte = Consulting.createApp<Projekt>({
                     { columnDetails: { xs:24, sm:24, md:24, lg:18, xl:16, xxl:16 }, elements: [
                         { field: 'title', controlType: EnumControltypes.ctStringInput },
                         { field: 'description', title: 'Beschreibung', controlType: EnumControltypes.ctStringInput },
-                        { field: 'kunde', controlType: EnumControltypes.ctSingleModuleOption },
+                        { field: 'kunde', controlType: EnumControltypes.ctAppLink, onChange: ({changedValues, allValues, mode, tools}) => {
+                            const { notification, message, invoke, setValue } = tools;
+                            
+                            // die Defaultgenerierung machen wir nur beim Neuzugang
+                            if (mode != EnumDocumentModes.NEW) return;
+
+                            if ( // nur wenn ein Kunde ausgewählt wurde
+                                changedValues.kunde && changedValues.kunde.length > 0 &&
+                                // und noch keine Preisliste durch den Anwender eingetragen ist
+                                ((allValues && allValues.preisliste === undefined) || (allValues && allValues.preisliste && allValues.preisliste.length == 0))
+                            ) {
+                                const setPreisliste = () => {
+                                    invoke('adressen.getDocument', changedValues.kunde[0]._id, (err: Meteor.Error, result: IGetDocumentResult<Adresse>) => {
+                                        if (err) {
+                                            message.error('Es ist ein unbekannter Fehler aufgetreten.' + err.message);
+                                            console.log(err);
+                                        } else {
+                                            if (result.status != EnumMethodResult.STATUS_OKAY) {
+                                                message.warning(result.statusText);
+                                            }
+                                            const pl = result.document?.preisliste;
+                                            if (!pl) return;
+
+                                            setValue('preisliste', pl);
+
+                                            notification.info({
+                                                message: `Preisliste übernommen`,
+                                                description: <span>Die Preisliste <strong>{pl[0].title}</strong> wurde aus Ihrer Kundeneingabe übernommen.<br/>Um diese zu Ändern prüfen Sie bitte die kaufmännischen Angaben.</span>
+                                            });
+                                        }
+                                    });
+                                };
+
+                                /*confirm({
+                                    title: 'Rückfrage',
+                                    content: 'Möchten Sie die Preisliste des Kunden übernehmen?',
+                                    onOk: setPreisliste
+                                });*/
+                                setPreisliste();
+                            }
+                        }},
                         { field: 'zeitraum', controlType: EnumControltypes.ctDatespanInput },
                         { field: 'status', controlType: EnumControltypes.ctOptionInput, values: Projektstati },
                     ]},
@@ -486,6 +548,8 @@ export const Projekte = Consulting.createApp<Projekt>({
                         { field: 'rechnungOrt', title: 'Ort', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
                     ]},
                     { field: 'rechnungLand', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
+                
+                    { field: 'preisliste', controlType: EnumControltypes.ctAppLink }
                 ]},
 
                 { controlType: EnumControltypes.ctReport, reportId: TeilprojekteByProjekt.reportId }
@@ -553,6 +617,18 @@ export const Projekte = Consulting.createApp<Projekt>({
                 }
             } else {
                 return { status: EnumMethodResult.STATUS_ABORT, statusText: `Die Anzeigeeinheit "${NEW.anzeigeeinheit}" konnte in Ihrer Beschreibung nicht gefunden werden.` };
+            }
+
+            // wenn noch keine Preisliste für das Projekt eingetragen ist,
+            // dann nun die Preisliste gemäß der Adressenstammdaten übernehmen
+            if (!NEW.preisliste) {
+                const adr = Adressen.findOne(NEW.kunde[0]._id);
+
+                if (adr && adr.preisliste && adr.preisliste.length) {
+                    NEW.preisliste = adr?.preisliste;
+                } else {
+                    return { status: EnumMethodResult.STATUS_ABORT, statusText: `Die Adresse "${NEW.kunde[0].title}" konnte in Ihrer Beschreibung nicht gefunden werden oder besitzt keine gültige Preisliste.` };
+                }
             }
 
             if (isOneOf(NEW.rechnungsempfaenger, ['kunde', 'distributor'])) {

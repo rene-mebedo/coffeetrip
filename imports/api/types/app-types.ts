@@ -5,6 +5,9 @@ import { App } from "../lib/app";
 //import { Report } from "../lib/report";
 import { ColProps } from "antd/lib/grid";
 import { Rule } from "antd/lib/form";
+import { ModalFunc } from "antd/lib/modal/confirm";
+import { MessageApi } from "antd/lib/message";
+import { NotificationApi } from "antd/lib/notification";
 
 export interface IPostProps {
     docId: string
@@ -54,6 +57,10 @@ export interface IGetUsersSharedWithResult extends IMethodStatus {
     }>
 }
 
+export interface IGetDocumentResult<T> extends IMethodStatus {
+    document?: AppData<T>
+}
+
 export interface IGenericAppLinkOptionsResult extends IMethodStatus {
     options?: Array<IGenericDocument>
 }
@@ -89,22 +96,37 @@ export interface IAppField<T> {
     }
 }
 
-export interface IToolExtras {
+export interface IToolExtras<T> {
     moment: TMoment
+    confirm: ModalFunc
+    message: MessageApi
+    notification: NotificationApi
+    /**
+     * Invokes an app-method on the Server
+     */
+    invoke: (name: string, ...args: any[]) => any
+    setValue: (fieldName: keyof T, newValue: any) => void
 }
 
-export interface IEnabledProps {
+export interface IEnabledProps<T> {
     changedValues: IGenericDocument,
     allValues: IGenericDocument,
     mode: EnumDocumentModes,
-    tools: IToolExtras
+    tools: IToolExtras<T>
 }
 
 export interface IVisibleProps<T> {
     changedValues: AppData<T>,
     allValues: AppData<T>,
     mode: EnumDocumentModes,
-    tools: IToolExtras
+    tools: IToolExtras<T>
+}
+
+export interface IOnChangeProps<T> {
+    changedValues: AppData<T>,
+    allValues: AppData<T>,
+    mode: EnumDocumentModes,
+    tools: IToolExtras<T>
 }
 
 export interface IGenericAppLayoutElement<T> {
@@ -115,8 +137,9 @@ export interface IGenericAppLayoutElement<T> {
      */
     noTitle?: boolean,
     controlType: EnumControltypes,
-    enabled?: (props:IEnabledProps) => boolean
+    enabled?: (props:IEnabledProps<T>) => boolean
     visible?: (props:IVisibleProps<T>) => boolean
+    onChange?: (props:IOnChangeProps<T>) => void
 }
 
 export interface IGoogleMapsLocationProps {
@@ -231,6 +254,17 @@ export interface IAppLayoutElementReport<T> extends IGenericAppLayoutElement<T> 
     reportId: string
 }
 
+export interface IAppLayoutElementAppLink<T> extends IGenericAppLayoutElement<T> {
+    controlType: EnumControltypes.ctAppLink,
+    /**
+     * Specifies the max count of items that should be selected
+     * If this property was not set the default is 1
+     * @default 1
+     */
+    maxItems?: number
+}
+
+
 export interface IAppLayoutElementOptionInput<T> extends IGenericAppLayoutElement<T> {
     controlType: EnumControltypes.ctOptionInput,
     values: TOptionValues<any>,
@@ -247,8 +281,8 @@ export interface IAppLayoutElementGenericInput<T> extends IGenericAppLayoutEleme
                  EnumControltypes.ctDatespanInput | 
                  EnumControltypes.ctYearInput | 
                  EnumControltypes.ctHtmlInput |
-                 EnumControltypes.ctSingleModuleOption |
-                 EnumControltypes.ctReport;                
+                 EnumControltypes.ctSingleModuleOption;
+                 //EnumControltypes.ctReport;                
 }
 
 export type TAppLayoutElement<T> = IAppLayoutElementReport<T> |
@@ -260,6 +294,7 @@ export type TAppLayoutElement<T> = IAppLayoutElementReport<T> |
                                 IAppLayoutElementSpacer<T> |
                                 IAppLayoutElementGenericInput<T> |
                                 IAppLayoutElementWidgetSimple<T> |
+                                IAppLayoutElementAppLink<T> |
                                 IAppLayoutElementColumns<T>;
 
 

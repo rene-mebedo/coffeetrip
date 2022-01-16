@@ -117,6 +117,25 @@ export class ReportControl extends React.Component<IReportControlProps, IReportC
                                 return (renderer as Function)(col, doc, { injectables: report.injectables, isExport, moment });
                             }
                         };
+
+                        if (c.children) {
+                            c.children = c.children.map( c => {
+                                const fnCode = c.render;
+                                if (fnCode) {
+                                    let renderer: TColumnRenderer<any>;
+                                    try{
+                                        renderer = eval(fnCode as string);
+                                    } catch (err) {
+                                        console.error(err, 'Fehler in der Funktion:', fnCode);
+                                    }
+        
+                                    c.render = function renderColumn(col, doc, { isExport = false }) {
+                                        return (renderer as Function)(col, doc, { injectables: report.injectables, isExport, moment });
+                                    }
+                                };
+                                return c;
+                            }) as unknown as any;
+                        }
                         
                         return c;
                     });
@@ -254,9 +273,9 @@ const executeAction = (onExecute: IReportActionExecution, mode: EnumDocumentMode
                 + data?.map((doc: any) => {
                     return columns?.filter( ({key}) => key && key.substring(0,2) != '__' ).map( c => {
                         if (c.render) {
-                            return (c.render as Function)(doc[c.dataIndex], doc, { isExport/*renderExport*/: true, injectables, moment });
+                            return (c.render as Function)(doc[c.dataIndex as string], doc, { isExport/*renderExport*/: true, injectables, moment });
                         }
-                        return doc[c.dataIndex];
+                        return doc[c.dataIndex as string];
                     }).join('\t')
                 }).join("\n");
 
@@ -484,7 +503,7 @@ export class ReportStatic extends React.Component<IReportStaticProps, IReportSta
                         <Tag color="green">realtime</Tag>
                     </Space>
                 }
-
+                
                 expandable={!nestedReportId ? undefined : {
                     expandedRowRender: (record:any) => { 
                         return (
@@ -658,7 +677,7 @@ class ReportLiveDataControl extends React.Component<IReportLiveDataControlProps,
                         <Tag color="green">realtime</Tag>
                     </Space>
                 }
-
+                
                 expandable={!nestedReportId ? undefined : {
                     expandedRowRender: (record:any) => { 
                         return (

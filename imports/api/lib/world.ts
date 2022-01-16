@@ -270,7 +270,7 @@ export class World {
                         ]
                     }
                 ]
-            }).fetch();
+            }, {sort: {position:1, title:1}}).fetch();
             
             return { status: EnumMethodResult.STATUS_OKAY, apps }
         }

@@ -9,7 +9,7 @@ import { ReportAdressenByKundenart } from "../reports/adressen-by-kundenart";
 import { WidgetAdressenByKundenart } from "../reports/adressen-by-kundenart.widget";
 import { ChartAdressenByKundenart } from "../reports/adressen-by-kundenart.chart";
 import { getAppStore } from "/imports/api/lib/core"; 
-import { Preislisten } from "./preislisten";
+import { Preislisten } from "../../konfiguration/apps/preislisten";
 import { JaNeinEnum } from "./ja-nein-optionen";
 
 export interface Adresse extends IGenericApp {

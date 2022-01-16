@@ -786,3 +786,8 @@ a[href="https://markerjs.com/"] {
 .module-list-input-selected-items {
     margin-top: -8px
 }
+
+
+.ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
+    z-index: unset; //z-index: 1; führte dazu, dass der Option-button über dem Affix-Bereich liegt
+}

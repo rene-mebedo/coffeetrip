@@ -1,6 +1,8 @@
+import { Meteor } from "meteor/meteor";
+
 import { FieldNamesAndMessages, isOneOf } from "/imports/api/lib/helpers";
 import { defaultSecurityLevel } from "../../security";
-import { EnumControltypes, EnumDocumentModes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
+import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
 
 import { AppData, IAppLink, IGenericApp, IGetDocumentResult, TAppLink } from "/imports/api/types/app-types";
 import { Consulting } from "..";
@@ -11,13 +13,11 @@ import { TeilprojekteByProjekt } from "../reports/teilprojekte-by-projekt";
 import { Teilprojekte } from "./teilprojekte";
 import { ProjekteByUser } from "../reports/projekte-by-user";
 import { calcMinutes, Einheiten, EinheitenEnum, TEinheit } from "./einheiten";
-import { renderSimpleWidgetAufwandMitEinheit, renderSimpleWidgetCurrency } from "./_helpers";
-import { Rechnungsempfaenger } from "./rechnungsempfaenger";
-//import { Preislisten } from "../../allgemein/apps/preislisten";
-import { Meteor } from "meteor/meteor";
+import { Rechnungsempfaenger, RechnungsempfaengerEnum } from "./rechnungsempfaenger";
+
 
 /**
- * Steuerung wann die abweichende Rechnungsanschrift oder der Distributor
+ * Steuerung wann die abweichende Rechnungsanschrift
  * in Ihrer Eingabe aktiviert und wann gesperrt werden
  * 
  * @returns true/false
@@ -38,7 +38,13 @@ const enableRechnungsanschrift = (props: any): boolean => {
     return false;
 }
 
-const enableDistributor = (props: any): boolean => {
+/**
+ * Steuerung wann die Eingabe des Distributor
+ * aktiviert und wann gesperrt wird
+ * 
+ * @returns true/false
+ */
+ const enableDistributor = (props: any): boolean => {
     const { changedValues, allValues }: { changedValues: AppData<Projekt>, allValues: AppData<Projekt>} = props;
     if (!changedValues && !allValues) return false;
     
@@ -51,6 +57,50 @@ const enableDistributor = (props: any): boolean => {
     }
 
     return false;
+}
+
+/**
+ * Indivuduelles rendering für die SimpleWidget Komponente
+ * hier konkret Aufwand mit Einheit
+ * 
+ * @param value 
+ * @param doc 
+ * @returns 
+ */
+export const renderSimpleWidgetAufwandMitEinheit = (value: number, doc: AppData<any>): string | number | JSX.Element => {
+    if (!doc) return <div>?</div>;
+
+    const { singular, plural, faktor, precision } = doc.anzeigeeinheitDetails;
+    const aufwand = value / faktor;
+    let displayAufwand = +(Number(aufwand).toFixed(precision === undefined ? 2 : precision))
+    
+    return (
+        <div>
+            <span>{displayAufwand}</span>
+            <span style={{fontSize:12, marginLeft:8}}>{(aufwand == 1 ? singular:plural)}</span>
+        </div>
+    );
+}
+
+/**
+ * Individuelles rendering für die SimpleWidget Komponente
+ * hier konkret Währungen
+ * 
+ * @param value 
+ * @param doc 
+ * @returns 
+ */
+export const renderSimpleWidgetCurrency = (value: number, doc: AppData<any>): string | number | JSX.Element => {
+    if (!doc) return <div>?</div>;
+
+    let displayValue = Number(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",").replace(/\,/g, "K").replace(/\./g, ",").replace(/\K/g, ".");
+    
+    return (
+        <div>
+            <span>{displayValue}</span>
+            <span style={{fontSize:12, marginLeft:8}}>€</span>
+        </div>
+    );
 }
 
 export interface Projekt extends IGenericApp {
@@ -118,7 +168,7 @@ export interface Projekt extends IGenericApp {
      * Definition wie sich die Rechnungsanschrift, derRechnungsempfänger ergibt
      * 
      **/
-    rechnungsempfaenger: string
+    rechnungsempfaenger: RechnungsempfaengerEnum
 
     /**
      * Abweichende Rechnungsanschrift Firmenname (Adressenzeile 1)
@@ -166,6 +216,13 @@ export interface Projekt extends IGenericApp {
      * herangezogen wird
      */
     preisliste: TAppLink
+
+    /**
+     * Mandant, so dass mit der Faktura bekannt ist wer der Rechnungsaussteller ist
+     * und entsprechende Angaben Absender, Bankverbindung, etc. auf den
+     * offiziellen Doumenten wie Angebot, Auftragsbestätigung und Rechnungen gedruckt werden kann
+     */
+    mandant: TAppLink
 }
 
 export const Projekte = Consulting.createApp<Projekt>('projekte', {
@@ -431,6 +488,21 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
             ],
             ...FieldNamesAndMessages('die', 'Preisliste', 'die', 'Preislisten'),
             ...defaultSecurityLevel
+        },
+
+        mandant: {
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'mandanten',
+                hasDescription: true,
+                linkable: true,
+                hasImage: false
+            },
+            rules: [
+                { required: true, message: 'Bitte geben Sie den Mandanten an.' },
+            ],
+            ...FieldNamesAndMessages('der', 'Mandant', 'die', 'Mandanten', { onUpdate: 'den Mandanten'} ),
+            ...defaultSecurityLevel
         }
     },
 
@@ -446,11 +518,25 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
                     { columnDetails: { xs:24, sm:24, md:24, lg:18, xl:16, xxl:16 }, elements: [
                         { field: 'title', controlType: EnumControltypes.ctStringInput },
                         { field: 'description', title: 'Beschreibung', controlType: EnumControltypes.ctStringInput },
-                        { field: 'kunde', controlType: EnumControltypes.ctAppLink, onChange: ({changedValues, allValues, mode, tools}) => {
-                            const { notification, message, invoke, setValue } = tools;
+                        { field: 'kunde', controlType: EnumControltypes.ctAppLink, onChange: ({changedValues, allValues, tools}) => {
+                            const { confirm, notification, message, invoke, setValue } = tools;
                             
                             // die Defaultgenerierung machen wir nur beim Neuzugang
-                            if (mode != EnumDocumentModes.NEW) return;
+                            //if (mode != EnumDocumentModes.NEW) return;
+                            
+                            if ( // nur wenn ein Kunde ausgewählt ODER abgewählt wurde
+                                changedValues && changedValues.kunde) {
+                                if (changedValues.kunde && changedValues.kunde.length == 0) {
+                                    confirm({
+                                        title: 'Kunde entfernt',
+                                        content: <div>
+                                            <p>Die Preisliste steht in direkter Abhängigkeit zum Kunden. <strong>Möchten Sie diese ebenfalls für das Projet entfernen?</strong></p>
+                                            <p>So kann bei erneuter Kundenauswahl die Preisliste direkt wieder vom neu ausgewählten Kunden übernommen werden.</p>
+                                        </div>,
+                                        onOk: () => setValue('preisliste', undefined)
+                                    });
+                                }
+                            }
 
                             if ( // nur wenn ein Kunde ausgewählt wurde
                                 changedValues.kunde && changedValues.kunde.length > 0 &&
@@ -537,6 +623,8 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
                     { field: 'anzeigeeinheit', controlType:EnumControltypes.ctOptionInput, values: Einheiten}
                 ]},
                 { title: 'Kaufmännische Angaben', controlType: EnumControltypes.ctCollapsible, elements: [
+                    { field: 'mandant', controlType: EnumControltypes.ctAppLink },
+                    { field: 'preisliste', controlType: EnumControltypes.ctAppLink },
                     { field: 'rechnungsempfaenger', controlType:EnumControltypes.ctOptionInput, values: Rechnungsempfaenger },
                     { field: 'rechnungDistributor', controlType: EnumControltypes.ctSingleModuleOption, enabled: enableDistributor, visible: enableDistributor },
                     { field: 'rechnungFirma1', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
@@ -547,9 +635,7 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
                         { field: 'rechnungPlz', noTitle: true, controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
                         { field: 'rechnungOrt', title: 'Ort', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
                     ]},
-                    { field: 'rechnungLand', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
-                
-                    { field: 'preisliste', controlType: EnumControltypes.ctAppLink }
+                    { field: 'rechnungLand', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },            
                 ]},
 
                 { controlType: EnumControltypes.ctReport, reportId: TeilprojekteByProjekt.reportId }
@@ -601,7 +687,7 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
                         faktor: calcMinutes(1, defaultEinheit as TEinheit, stundenProTag),
                         precision: (defaultEinheit as TEinheit).options.precision
                     },
-                    rechnungsempfaenger: 'kunde'
+                    rechnungsempfaenger: RechnungsempfaengerEnum.kunde
                 }
             }
         },

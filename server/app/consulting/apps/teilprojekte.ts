@@ -9,7 +9,7 @@ import { Projektstati } from "./projektstati";
 import { Projekt, Projekte } from "./projekte";
 import { Aktivitaeten } from "./aktivitaeten";
 import { AktivitaetenByTeilprojekte } from "../reports/aktivitaeten-by-teilprojekte";
-import { renderSimpleWidgetAufwandMitEinheit } from "./_helpers";
+import { renderSimpleWidgetAufwandMitEinheit } from './projekte';
 
 export interface Teilprojekt extends IGenericApp {
     projekt: TAppLink

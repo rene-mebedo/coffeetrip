@@ -3,50 +3,47 @@ import { defaultSecurityLevel } from "../../security";
 
 import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
 
-import { Allgemein } from "/server/app/allgemein";
+import { Konfiguration } from '/server/app/konfiguration';
 
-import { AppData, IGenericApp, IGenericRemoveResult, TOptionValues } from "/imports/api/types/app-types";
+import { AppData, IGenericApp, IGenericRemoveResult, TAppLink, TOptionValues } from "/imports/api/types/app-types";
 import { MebedoWorld } from "../../mebedo-world";
 import { getAppStore } from "/imports/api/lib/core";
 
 import Tag from 'antd/lib/tag';
-import { JaNeinEnum, JaNeinOptionen } from "./ja-nein-optionen";
-import { Adressen } from "./adressen";
-import { Projekte } from "../../consulting/apps/projekte";
+import { JaNeinEnum, JaNeinOptionen } from "../../allgemein/apps/ja-nein-optionen";
+import { Einheiten, EinheitenEnum } from "../../consulting/apps/einheiten";
 
-export interface Preisliste extends IGenericApp {
+export interface Artikel extends IGenericApp {
     /**
-     * Gültigkeit der Preisliste
+     * Ausführliche Artikelbeschreibung
      */
-    gueltigkeit: Array<Date>
-
+    artikelbeschreibung: string
     /**
-     * Zusätzlicher Kommentar, der den Umfang den Preisliste ggf. beschreibt
+     * Definiert die Grundeinheit des Artikels
      */
-    comment: string
-
+    einheit: EinheitenEnum
     /**
-     * Definiert, ob die Preisliste noch aktive in einer
+     * Definiert, ob der Artikel noch aktive in einer
      * Auswahl angeboten wird
      */
     active: JaNeinEnum
 
     /**
-     * Kennzeichnung ob diese Preisliste als Default für neue Adressen
-     * herangezogen werden soll
+     * Definition der Umsatzsteuerbehandlung
+     * und des Erlöskontos
      */
-    isStandard: JaNeinEnum
+    kontriergruppe: TAppLink
 }
 
-export const Preislisten = Allgemein.createApp<Preisliste>('preislisten', {
-    title: "Preislisten",
-    description: "Beschreibung aller Preislisten zur Abbildung wiederkehrender Kundenpreismodelle.",
-    icon: 'fa-fw far fa-money-bill-alt',
+export const Artikels = Konfiguration.createApp<Artikel>('artikel', {
+    title: "Artikel",
+    description: "Beschreibung aller notwendigen Artikel.",
+    icon: 'fa-fw fas fa-tag',
     position: 1,
     
     namesAndMessages: {
-        singular: { mitArtikel: 'die Preisliste', ohneArtikel: 'Preisliste' },
-        plural: { mitArtikel: 'die Preislisten', ohneArtikel: 'Preislisten' },
+        singular: { mitArtikel: 'der Artikel', ohneArtikel: 'Artikel' },
+        plural: { mitArtikel: 'die Artikel', ohneArtikel: 'Artikel' },
 
         // wenn vorhanden, dann wird die Message genutzt - ansonsten wird
         // die Msg generisch mit singular oder plural generiert
@@ -77,18 +74,21 @@ export const Preislisten = Allgemein.createApp<Preisliste>('preislisten', {
             ...defaultSecurityLevel
         },
 
-        gueltigkeit: {
-            type: EnumFieldTypes.ftDatespan,
+        artikelbeschreibung: {
+            type: EnumFieldTypes.ftString, 
             rules: [
-                { required: true, message: 'Bitte geben Sie die Güligkeit der Preisliste ein.' },    
+                //{ required: true, message: 'Bitte geben Sie eine ausführliche Artikelbeschreibung an.' },    
             ],
-            ...FieldNamesAndMessages('die', 'Gültigkeit', 'die', 'Gültigkeiten'),
+            ...FieldNamesAndMessages('die', 'Artikelbeschreibung', 'die', 'Artikelbeschreibung'),
             ...defaultSecurityLevel
         },
 
-        comment: {
-            type: EnumFieldTypes.ftString,
-            ...FieldNamesAndMessages('der', 'Kommentar', 'die', 'Kommentare', { onUpdate: 'den Kommentar' }),
+        einheit: {
+            type: EnumFieldTypes.ftString, 
+            rules: [
+                { required: true, message: 'Bitte geben Sie eine Einheit an, in der dieser Artikel geführt wird.' },    
+            ],
+            ...FieldNamesAndMessages('die', 'Einheit', 'die', 'Einheiten'),
             ...defaultSecurityLevel
         },
 
@@ -101,14 +101,20 @@ export const Preislisten = Allgemein.createApp<Preisliste>('preislisten', {
             ...defaultSecurityLevel
         },
 
-        isStandard: {
-            type: EnumFieldTypes.ftString,
+        kontriergruppe: {
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'kontiergruppen',
+                hasDescription: true,
+                hasImage:false,
+                linkable: true
+            },
             rules: [
-                { required: true, message: 'Bitte geben Sie an, ob diese Preisliste die Standard-Systempreisliste sein soll.' },
+                { required: true, message: 'Bitte geben Sie an, wie dieser Artikel für das Rechnungswesen behandelt werden soll.' },
             ],
-            ...FieldNamesAndMessages('die', 'Standardeinstellung', 'die', 'Standardeinstellungen'),
+            ...FieldNamesAndMessages('die', 'Kontiergruppe', 'die', 'Kontiergruppen'),
             ...defaultSecurityLevel
-        },
+        }
 
     },
 
@@ -123,10 +129,9 @@ export const Preislisten = Allgemein.createApp<Preisliste>('preislisten', {
                 { field: 'title', controlType: EnumControltypes.ctStringInput },
                 { field: 'description', title: 'Beschreibung', controlType: EnumControltypes.ctStringInput },
                 
-                { field: 'gueltigkeit', controlType: EnumControltypes.ctDatespanInput },
-                { field: 'comment', controlType: EnumControltypes.ctTextInput },
+                { field: 'artikelbeschreibung', controlType: EnumControltypes.ctHtmlInput },
+                { field: 'einheit', controlType: EnumControltypes.ctOptionInput, values: Einheiten },
                 { field: 'active', title: 'Aktiv', controlType: EnumControltypes.ctOptionInput, values: JaNeinOptionen },
-                { field: 'isStandard', title:'Als Standard verwenden', controlType: EnumControltypes.ctOptionInput, values: JaNeinOptionen },
             ]
         },
     },
@@ -135,49 +140,18 @@ export const Preislisten = Allgemein.createApp<Preisliste>('preislisten', {
         neu: {
             isPrimaryAction: true,
 
-            description: 'Neuzugang einer Preisliste',
+            description: 'Neuzugang eines Artikels',
             icon: 'fas fa-plus',
             
             visibleBy: [ 'ADMIN' ],
             executeBy: [ 'ADMIN' ],
 
-            onExecute: { redirect: '/allgemein/preislisten/new' }
+            onExecute: { redirect: '/konfiguration/artikel/new' }
         },
     },
 
     methods: {
-        onBeforeInsert: async function(_NEW, { currentValue }) {
-            if (currentValue('isStandard') == JaNeinEnum.ja) {
-                const std = Preislisten.findOne({ isStandard: JaNeinEnum.ja });
-                if (std) {
-                    return { status: EnumMethodResult.STATUS_ABORT, statusText: `Es ist bereits eine Preisliste als Standard definiert. Es können nicht mehrere Preislisten zeitgleich als Standard agieren.`}
-                }
-            }
 
-            return { status: EnumMethodResult.STATUS_OKAY }
-        },
-
-        onBeforeUpdate: async function(_id, _NEW, _OLD, { currentValue }) {
-            if (currentValue('isStandard') == JaNeinEnum.ja) {
-                const std = Preislisten.findOne({ isStandard: JaNeinEnum.ja });
-                if (std) {
-                    return { status: EnumMethodResult.STATUS_ABORT, statusText: `Es ist bereits eine Preisliste als Standard definiert. Es können nicht mehrere Preislisten zeitgleich als Standard agieren.`}
-                }
-            }
-
-            return { status: EnumMethodResult.STATUS_OKAY }
-        },
-
-        onBeforeRemove: async function(OLD) {
-            // Prüfen, ob diese Preisliste bereits verwandt wird
-            const adr = Adressen.findOne({ 'preisliste._id': OLD._id });
-            const prj = Projekte.findOne({ 'preisliste._id': OLD._id });
-            if (adr || prj) {
-                return { status: EnumMethodResult.STATUS_ABORT, statusText: `Die Preisliste wird bereits in einer oder mehrere Adressen verwandt und kann nicht gelöscht werden.` }
-            }
-
-            return { status: EnumMethodResult.STATUS_OKAY }
-        },
     },
 
     dashboardPicker: () => 'default',
@@ -186,7 +160,7 @@ export const Preislisten = Allgemein.createApp<Preisliste>('preislisten', {
             rows: [
                 {
                     elements: [
-                        { _id:'preislisten-all', width: { xs:24 },  type: 'report', details: { type: 'table', reportId: 'preislisten-all' } },
+                        { _id:'artikel-all', width: { xs:24 },  type: 'report', details: { type: 'table', reportId: 'artikel-all' } },
                     ]
                 },
             ]
@@ -195,11 +169,11 @@ export const Preislisten = Allgemein.createApp<Preisliste>('preislisten', {
 });
 
 
-export const ReportPreislistenAll = MebedoWorld.createReport<Preisliste, never>('preislisten-all', {
+export const ReportArtikelAll = MebedoWorld.createReport<Artikel, never>('artikel-all', {
     type: 'table',
     
-    title: 'Alle Preislisten',
-    description: 'Zeigt alle Preislisten.',
+    title: 'Alle Artikel',
+    description: 'Zeigt alle Artikel.',
 
     /*sharedWith: [],
     sharedWithRoles: ['EVERYBODY'],*/
@@ -213,31 +187,28 @@ export const ReportPreislistenAll = MebedoWorld.createReport<Preisliste, never>(
     liveDatasource: ({ isServer, publication, currentUser }) => {
         if (isServer && !currentUser) return publication?.ready();
         
-        const Preislisten = getAppStore('preislisten');
-        return Preislisten.find({}, { sort: { title: 1 } });
+        const Artikel = getAppStore('artikel');
+        return Artikel.find({}, { sort: { title: 1 } });
     },
 
     columns: [
         {
-            title: 'Preisliste',
+            title: 'Artikel',
             key: 'title',
             dataIndex: 'title',
 
         },
         {
-            title: 'Gültigkeit',
-            key: 'gueltigkeit',
-            dataIndex: 'gueltigkeit',
-            render: (gueltigkeit: Array<Date>, _preisliste: AppData<Preisliste>, { moment }) => {
-                return `${moment(gueltigkeit[0]).format('DD.MM.YYYY')} bis ${moment(gueltigkeit[1]).format('DD.MM.YYYY')}`;
-            }
+            title: 'Kurzbeschreibung',
+            key: 'description',
+            dataIndex: 'description',
         },
         {
             title: 'Status',
             key: 'active',
             dataIndex: 'active',
             align: 'center',
-            render: (active: string, preisliste: AppData<Preisliste>, { injectables }) => {
+            render: (active: string, _artikel: AppData<Artikel>, { injectables }) => {
                 const { JaNeinOptionen }: { JaNeinOptionen: TOptionValues<JaNeinEnum> } = injectables as any;
                 
                 const a = JaNeinOptionen.find( jn => jn._id === active );
@@ -246,7 +217,6 @@ export const ReportPreislistenAll = MebedoWorld.createReport<Preisliste, never>(
                 return (
                     <div>
                         <Tag style={{color: a.color as string, backgroundColor: a.backgroundColor as string}}>{ a._id == 'ja' ? 'Aktiv': 'Inaktiv' }</Tag>
-                        { preisliste.isStandard == 'ja' ? <Tag color='volcano'>Standard</Tag> : null }
                     </div>
                 )
             }
@@ -270,7 +240,7 @@ export const ReportPreislistenAll = MebedoWorld.createReport<Preisliste, never>(
             executeBy: [ 'ADMIN' ],
 
             onExecute: { 
-                redirect: '/allgemein/preislisten/{{rowdoc._id}}'
+                redirect: '/konfiguration/artikel/{{rowdoc._id}}'
             }
         },
         {
@@ -290,17 +260,17 @@ export const ReportPreislistenAll = MebedoWorld.createReport<Preisliste, never>(
                     const { confirm, message, invoke } = tools;
 
                     confirm({
-                        title: `Möchten Sie die Preisliste wirklich löschen?`,
+                        title: `Artikel löschen?`,
                         //icon: <ExclamationCircleOutlined />,
-                        content: <div>Das Löschen der Preisliste <b>{row.title}</b> kann nicht rückgängig gemacht werden!</div>,
+                        content: <div>Das Löschen des Artikels <b>{row.title}</b> kann nicht rückgängig gemacht werden!</div>,
                         onOk() {
-                            invoke('preislisten.removeDocument', { productId: 'allgemein', appId: 'preislisten', docId: row._id }, (err: any, res: IGenericRemoveResult) => {
+                            invoke('artikel.removeDocument', { productId: 'konfiguration', appId: 'artikel', docId: row._id }, (err: any, res: IGenericRemoveResult) => {
                                 if (err) {
                                     console.log(err);
                                     return message.error('Es ist ein unbekannter Fehler aufgetreten.');
                                 }
                                 if (res.status == EnumMethodResult.STATUS_OKAY) {
-                                    return message.success('Die Preisliste wurde erfolgreich gelöscht');
+                                    return message.success('Der Artikel wurde erfolgreich gelöscht');
                                 }
                                 if (res.status == EnumMethodResult.STATUS_ABORT) {
                                     return message.warning(res.statusText);

@@ -3,13 +3,39 @@ import { defaultSecurityLevel } from "../../security";
 
 import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
 
-import { AppData, IGenericApp, IGenericRemoveResult } from "/imports/api/types/app-types";
+import { AppData, IGenericApp, IGenericRemoveResult, TAppLink } from "/imports/api/types/app-types";
 import { MebedoWorld } from "../../mebedo-world";
 import { getAppStore } from "/imports/api/lib/core";
 
 import { Fibu } from "..";
 
 export interface Kontierung extends IGenericApp {
+    /**
+     * Zugehörigkeit dieser Kontierung zu einer Gruppe
+     */
+    kontiergruppe: TAppLink
+
+    /**
+     * Zugehörigkeit zu einem Mandanten
+     */
+    mandant: TAppLink
+
+    /**
+     * Zugehörigkeit zu einer Länergruppe
+     */
+    laendergruppe: TAppLink
+
+    /**
+     * Zugehörigkeit zu einem Land
+     */
+    land: TAppLink
+
+    /**
+     * Zugehörigkeit zu einem Fibustatus, 
+     * der aus der Adresse herangezogen wird
+     */
+    fibustatus: TAppLink
+
     /**
      * Gültigkeit dieser Kontierung
      */
@@ -83,6 +109,70 @@ export const Kontierungen = Fibu.createApp<Kontierung>('kontierungen', {
             ...defaultSecurityLevel
         },
 
+        mandant: {
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'mandanten',
+                hasDescription: true,
+                hasImage: false,
+                linkable: true
+            },
+            rules: [],
+            ...FieldNamesAndMessages('der', 'Mandant', 'die', 'Mandanten',{ onUpdate: 'den Mandanten' }),
+            ...defaultSecurityLevel
+        },
+
+        kontiergruppe: {
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'kontiergruppen',
+                hasDescription: true,
+                hasImage: false,
+                linkable: true
+            },
+            rules: [],
+            ...FieldNamesAndMessages('die', 'Kontiergruppe', 'die', 'Kontiergruppen'),
+            ...defaultSecurityLevel
+        },
+
+        fibustatus: {
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'fibustati',
+                hasDescription: true,
+                hasImage: false,
+                linkable: true
+            },
+            rules: [],
+            ...FieldNamesAndMessages('der', 'Fibustatus', 'die', 'Fibustati', { onUpdate: 'den Fibustatus' }),
+            ...defaultSecurityLevel
+        },
+
+        laendergruppe: {
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'laendergruppen',
+                hasDescription: true,
+                hasImage: true,
+                linkable: true
+            },
+            rules: [],
+            ...FieldNamesAndMessages('die', 'Ländergruppe', 'die', 'Ländergruppen'),
+            ...defaultSecurityLevel
+        },
+        land: {
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'laender',
+                hasDescription: true,
+                hasImage: false,
+                linkable: true
+            },
+            rules: [],
+            ...FieldNamesAndMessages('das', 'Land', 'die', 'Länder'),
+            ...defaultSecurityLevel
+        },
+
         ustsatzVh: {
             type: EnumFieldTypes.ftInteger, 
             rules: [
@@ -134,6 +224,15 @@ export const Kontierungen = Fibu.createApp<Kontierung>('kontierungen', {
                 { field: 'description', title: 'Beschreibung', controlType: EnumControltypes.ctStringInput },
                 
                 { field: 'gueltigkeit', controlType: EnumControltypes.ctDatespanInput },
+
+                { title: 'Referenzierung', controlType: EnumControltypes.ctDivider },
+                { field: 'mandant', controlType: EnumControltypes.ctAppLink, maxItems: 200 },
+                { field: 'kontiergruppe', controlType: EnumControltypes.ctAppLink, maxItems: 200 },
+                { field: 'fibustatus', controlType: EnumControltypes.ctAppLink, maxItems: 200 },
+                { field: 'laendergruppe', controlType: EnumControltypes.ctAppLink, maxItems: 200 },
+                { field: 'land', controlType: EnumControltypes.ctAppLink, maxItems: 200 },
+
+                { title: 'Kontierung', controlType: EnumControltypes.ctDivider },
                 { field: 'ustsatzVh', controlType: EnumControltypes.ctNumberInput },
                 { field: 'steuerschluessel', controlType: EnumControltypes.ctStringInput },
                 { field: 'steuerkonto', controlType: EnumControltypes.ctStringInput },

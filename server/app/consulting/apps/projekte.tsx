@@ -202,7 +202,7 @@ export interface Projekt extends IGenericApp {
     /**
      * Abweichende Rechnungsanschrift Land
      */
-    rechnungLand: string
+    rechnungLand: TAppLink
 
     /**
      * Distributor, der als Rechnungsempfänger dient
@@ -223,6 +223,11 @@ export interface Projekt extends IGenericApp {
      * offiziellen Doumenten wie Angebot, Auftragsbestätigung und Rechnungen gedruckt werden kann
      */
     mandant: TAppLink
+
+    /**
+     * Leistungsland
+     */
+    leistungsland: TAppLink
 }
 
 export const Projekte = Consulting.createApp<Projekt>('projekte', {
@@ -269,7 +274,7 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
             appLink: {
                 app: 'adressen',
                 hasDescription: true,                
-                hasImage: false,
+                hasImage: true,
                 linkable: true,
                 link: (doc) => `/allgemein/adressen/${doc._id}`
             } as IAppLink<Adresse>,
@@ -451,7 +456,13 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
         },
 
         rechnungLand: {
-            type: EnumFieldTypes.ftString,
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'laender',
+                hasDescription: true,
+                hasImage: true,
+                linkable: true
+            },
             rules: [
                 { required: true, message: 'Bitte geben Sie das Land an.' },
             ],
@@ -464,10 +475,10 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
             appLink: {
                 app: 'adressen',
                 hasDescription: true,                
-                hasImage: false,
+                hasImage: true,
                 linkable: true,
                 link: (doc) => `/allgemein/adressen/${doc._id}`
-            } as IAppLink<Adresse>,
+            },
             rules: [
                 { required: true, message: 'Bitte geben Sie den Distributor an.' },
             ],
@@ -503,7 +514,23 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
             ],
             ...FieldNamesAndMessages('der', 'Mandant', 'die', 'Mandanten', { onUpdate: 'den Mandanten'} ),
             ...defaultSecurityLevel
-        }
+        },
+        
+        leistungsland: {
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'laender',
+                hasDescription: true,
+                hasImage: true,
+                linkable: true
+            },
+            rules: [
+                { required: true, message: 'Bitte geben Sie das Leistungsland an.' },
+            ],
+            ...FieldNamesAndMessages('das', 'Leistungsland', 'die', 'Leistungsländer'),
+            ...defaultSecurityLevel
+        },
+
     },
 
     layouts: {
@@ -625,8 +652,9 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
                 { title: 'Kaufmännische Angaben', controlType: EnumControltypes.ctCollapsible, elements: [
                     { field: 'mandant', controlType: EnumControltypes.ctAppLink },
                     { field: 'preisliste', controlType: EnumControltypes.ctAppLink },
+                    { field: 'leistungsland', controlType: EnumControltypes.ctAppLink },
                     { field: 'rechnungsempfaenger', controlType:EnumControltypes.ctOptionInput, values: Rechnungsempfaenger },
-                    { field: 'rechnungDistributor', controlType: EnumControltypes.ctSingleModuleOption, enabled: enableDistributor, visible: enableDistributor },
+                    { field: 'rechnungDistributor', controlType: EnumControltypes.ctAppLink, enabled: enableDistributor, visible: enableDistributor },
                     { field: 'rechnungFirma1', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
                     { field: 'rechnungFirma2', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
                     { field: 'rechnungFirma3', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
@@ -726,7 +754,7 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
                 NEW.rechnungStrasse = '';
                 NEW.rechnungPlz = '';
                 NEW.rechnungOrt = '';
-                NEW.rechnungLand = '';
+                NEW.rechnungLand = [];
             }
 
             if (isOneOf(NEW.rechnungsempfaenger, ['kunde', 'abweichend'])) {
@@ -770,7 +798,7 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
                 NEW.rechnungStrasse = '';
                 NEW.rechnungPlz = '';
                 NEW.rechnungOrt = '';
-                NEW.rechnungLand = '';
+                NEW.rechnungLand = [];
             }
 
             if (isOneOf(NEW.rechnungsempfaenger, ['kunde', 'abweichend'])) {

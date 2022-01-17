@@ -1,4 +1,4 @@
-import { AppData, TAppLink, TAppLinkItem } from "../types/app-types";
+import { AppData, TAppLink, TAppLinkItem, UpdateableAppData } from "../types/app-types";
 
 interface  IExtras {
     title?: string | null,
@@ -42,15 +42,39 @@ export const FieldNamesAndMessages = (artikel: string, nameSingular: string, art
 }
 
 /**
- * Generiert einen Single-AppLink Item für die TAppLink Felder
+ * Generiert einen Single-AppLink inkl. Item für die TAppLink Felder
  * 
  * @param doc Document, welches zur Generierung des Applink verwandt werden soll
  * @param options.link Optional: Linkadresse für das Item ohne ID, die dann dynamisch aus dem übergebenen Dokument angehangen wird
  * @returns 
  */
-export const getAppLinkItem = (doc: AppData<any>, { link }:{ link: string}): TAppLink => {
+export const getAppLink = (doc: AppData<any>, options:{ link: string }): TAppLink => {
     if (!doc) return [];
 
+    /*const al: TAppLinkItem = {
+        _id: doc._id,
+        title: doc.title,
+        description: doc.description,
+        imageUrl: doc.imageUrl
+    };
+
+    if (link) {
+        al.link = link + (link.endsWith('/') ? '' : '/') + doc._id;
+    }*/
+
+    return [
+        getAppLinkItem(doc, options)
+    ];
+}
+
+/**
+ * Generiert ein AppLinkItem für die Verwendung innerhalb eines TAppLink Types
+ * 
+ * @param doc Document, welches zur Generierung des ApplinkItem verwandt werden soll
+ * @param options.link Optional: Linkadresse für das Item ohne ID, die dann dynamisch aus dem übergebenen Dokument angehangen wird
+ * @returns 
+ */
+ export const getAppLinkItem = (doc: AppData<any> | UpdateableAppData<any>, { link }:{ link: string }): TAppLinkItem => {
     const al: TAppLinkItem = {
         _id: doc._id,
         title: doc.title,
@@ -62,5 +86,5 @@ export const getAppLinkItem = (doc: AppData<any>, { link }:{ link: string}): TAp
         al.link = link + (link.endsWith('/') ? '' : '/') + doc._id;
     }
 
-    return [al];
+    return al;
 }

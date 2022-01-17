@@ -10,10 +10,13 @@ import './app/konfiguration';
 import './app/konfiguration/apps/mandanten';
 import './app/konfiguration/apps/preislisten';
 import './app/konfiguration/apps/artikel';
+import './app/konfiguration/apps/laender';
+import './app/konfiguration/apps/laendergruppen';
 
 import './app/fibu';
 import './app/fibu/apps/kontierungen';
 import './app/fibu/apps/kontiergruppen';
+import './app/fibu/apps/fibustati';
 
 import './app/akademie/';
 import './app/akademie/apps/seminare';
@@ -39,7 +42,7 @@ import './app/allgemein/reports';
 Meteor.publish('currentUser', function publishCurrentUser(this:Subscription): Mongo.Cursor<Meteor.User, Meteor.User> | null {
     if (!this.userId) {
         this.ready();
-        return null; 
+        return null;  
     }
 
     // extra publish with the field of userdata: { ... }

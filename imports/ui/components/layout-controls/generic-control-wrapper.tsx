@@ -1,15 +1,35 @@
 import React, { useState, useMemo } from 'react';
+import { Meteor } from 'meteor/meteor';
 
 import moment from 'moment';
 
 import Form from 'antd/lib/form';
+import message from 'antd/lib/message';
+import Modal from 'antd/lib/modal';
+import notification from 'antd/lib/notification';
 
-import { IGenericDocument } from '/imports/api/lib/core';
-import { EnumDocumentModes } from '/imports/api/consts';
+const { confirm } = Modal;
+
+import { getAppStore, IGenericDocument } from '/imports/api/lib/core';
+import { EnumDocumentModes, EnumMethodResult } from '/imports/api/consts';
 import { useOnce, useWhenChanged } from '/imports/api/lib/react-hooks';
 import { getLabel } from '../app-layout';
 import { IApp, TAppLayoutElement } from '/imports/api/types/app-types';
 import { IWorldUser } from '/imports/api/types/world';
+import { isFunction } from '/imports/api/lib/basics';
+
+// dummyfoo was added to use getAppstore, check, Match and <Tag> in LiveDatasource and Report Actions on the client and server
+export const dummyfoo = (): JSX.Element => {
+    const x = getAppStore('x');
+    
+    if ('200' == EnumMethodResult.STATUS_OKAY || x === null) return <div></div>
+    notification.info({
+        message: 'Tset',
+        description: 'foo bar baz'
+    });
+    return <div/>
+}
+
 
 export type IMethodOnValuesChange = (
     callback: (
@@ -48,7 +68,7 @@ export interface IGenericControlProps {
 export const GenericControlWrapper = (props: IGenericControlProps) : JSX.Element => {
     const { elem, app, mode, onValuesChange, defaults, document, children, withoutInput = false, className } = props;
     const { fields } = app || { fields: null };
-    const { field, enabled, visible } = elem || {field:null, enabled:null, visible:null};
+    const { field, enabled, visible, onChange } = elem || {field:null, enabled:null, visible:null};
 
     let { rules, autoValue } = (field && fields) ? fields[field as string] : { rules: undefined, autoValue: null };
 
@@ -57,6 +77,7 @@ export const GenericControlWrapper = (props: IGenericControlProps) : JSX.Element
 
     const isEnabled = useMemo( () => (enabled ? eval(enabled as unknown as string) : () => true), [enabled] );
     const isVisible = useMemo( () => (visible ? eval(visible as unknown as string) : () => true), [visible] );
+    const customOnChange = useMemo( () => (onChange ? eval(onChange as unknown as string) : () => true), [onChange] );
 
 
     useWhenChanged(mode, (_oldMode: any) => {
@@ -128,13 +149,34 @@ export const GenericControlWrapper = (props: IGenericControlProps) : JSX.Element
 
     if (visible) {
         // immer dann aufrufen, wenn sich Werte geändert haben
-        onValuesChange( (changedValues, allValues) => {            
+        onValuesChange( (changedValues, allValues) => {    
             const h = !isVisible({fieldName: field, changedValues, allValues, mode}, {moment});
             if (h != hide) {
                 //console.log('SET on onValuesChange', field, h, changedValues, allValues)
                 setHide(h);
             }
         });
+    }
+
+    if (onChange) {
+        onValuesChange( (changedValues, allValues, setValue) => {            
+            const tools = {
+                moment,
+                confirm,
+                message,
+                notification,
+                invoke: (name: string, ...args:any[]) => {
+                    let callback = (_error: Meteor.Error | any, _result?: any) => {};
+                    if (args && isFunction(args[args.length-1])) {
+                        callback = args.pop()
+                    }
+                    Meteor.apply('__app.' + name, args, {}, callback);
+                },
+                setValue
+            };
+            customOnChange({fieldName: field, changedValues, allValues, mode, tools});
+        });
+        
     }
 
     let cln = 'mbac-layout-element' + (className ? ' ' + className : '');

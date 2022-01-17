@@ -378,6 +378,10 @@ export const AppLayoutElementsSchema = new SimpleSchema({
         type: String,
         optional: true
     },
+    onChange: {
+        type: String,
+        optional: true
+    },
     reportId: { // wird genutzt, wenn controltype = ctReport
         type: String,
         optional: true
@@ -457,6 +461,10 @@ export const AppLayoutElementsSchema = new SimpleSchema({
     },
     render: {
         type: 'String', // ind. renderfunction zur client-rendering von gewissen Anzeigen z.B. SimpleWidget
+        optional: true
+    },
+    maxItems: { // max Anzahl auszuwählender Einträge in dem alyouttype AppLink
+        type: SimpleSchema.Integer,
         optional: true
     }
 });
@@ -559,11 +567,13 @@ export const ReportSchema = new SimpleSchema({
     },
     'columns.$': {
         type: new SimpleSchema({
-            key: { type: String },
-            dataIndex: { type: String },
             title: { type: String },
+            key: { type: String, optional: true },
+            dataIndex: { type: String, optional: true },
             render: { type: String, optional: true },
             align: { type: String, optional: true },
+            children: { type: Array, blackbox: true, optional: true },
+            'children.$': { type: Object, blackbox: true, optional: true }
         })
     },
     staticDatasource: { // datasource für static reports

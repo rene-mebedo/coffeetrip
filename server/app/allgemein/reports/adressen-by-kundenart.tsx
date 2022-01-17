@@ -8,7 +8,7 @@ import { TOptionValues } from '/imports/api/types/app-types';
 import { IReportRendererExtras } from '/imports/api/types/world';
 
 import { Adresse } from '../apps/adressen';
-import { Adressarten, AdressartenEnum } from '../apps/kundenarten';
+import { Adressarten, AdressartenEnum } from '../apps/adressarten';
 
 export const ReportAdressenByKundenart = MebedoWorld.createReport<Adresse, Adresse>('adressen-by-kundenart', {
 

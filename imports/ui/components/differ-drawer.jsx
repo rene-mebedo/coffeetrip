@@ -92,6 +92,8 @@ export const DiffDrawer = ( { appId, docId, action, changes } ) => {
                 oldValue = ''+oldValue; // convert numeric value to text
             }
 
+            if (oldValue === undefined) oldValue = '';
+            if (newValue === undefined) newValue = '';
 
             if (oldValue === null) oldValue = '';
             if (newValue === null) newValue = '';

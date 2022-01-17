@@ -213,6 +213,9 @@ const checkAndCalculatePreiseUndRabatte = (
             einzelpreisRabattiert1 = currentValue('einzelpreis') - currentValue('rabatt1');
         } else if ( currentValue('rabattEinheit1') == RabattEinheitenEnum.prozent ) {
             einzelpreisRabattiert1 = currentValue('einzelpreis') - (currentValue('einzelpreis') * currentValue('rabatt1') / 100);
+        } else {
+            // wenn kein rabatt eingetragen, so gilt der unrabattierte Einzelbetrag
+            einzelpreisRabattiert1 = currentValue('einzelpreis');
         }
         NEW.einzelpreisRabattiert1 = einzelpreisRabattiert1;
         
@@ -221,10 +224,30 @@ const checkAndCalculatePreiseUndRabatte = (
             einzelpreisFinal = einzelpreisRabattiert1 - currentValue('rabatt2');
         } else if ( currentValue('rabattEinheit2') == RabattEinheitenEnum.prozent ) {
             einzelpreisFinal = einzelpreisRabattiert1 - (einzelpreisRabattiert1 * currentValue('rabatt2') / 100);
+        } else {
+            // wenn kein zweiter Rabatt, so gilt der rabattierte Enzelreis 1
+            einzelpreisFinal = einzelpreisRabattiert1;
         }
         NEW.einzelpreisFinal = einzelpreisFinal;
 
         NEW.gesamtpreis = einzelpreisFinal * currentValue('aufwandPlan');
+    }
+
+    // Werte gemäß Abrechnungsmethode Nullen
+    switch (currentValue('abrechnungsmethode')) {
+        case AbrechnungsmethodenEnum.ohneBerechnung,
+            AbrechnungsmethodenEnum.zumFestpreis:
+            NEW.einzelpreis = 0;
+            NEW.rabatt1 = 0;
+            NEW.rabatt2 = 0;
+            NEW.einzelpreisRabattiert1 = 0
+            NEW.einzelpreisFinal = 0
+            NEW.einzelpreisFinal = 0
+
+        case AbrechnungsmethodenEnum.ohneBerechnung:
+            NEW.gesamtpreis = 0;
+
+            break;
     }
     
     return { status: EnumMethodResult.STATUS_OKAY }
@@ -604,13 +627,15 @@ export const Aktivitaeten = Consulting.createApp<Aktivitaet>({
 
         onAfterInsert: async function (_aktId, NEW, { session }) {
             const tpId = NEW.teilprojekt[0]._id;
-            const tp = await Teilprojekte.raw().findOne({ _id: tpId }, { session } );
-            const aufwandPlanMinuten:number = (tp.aufwandPlanMinuten || 0) + NEW.aufwandPlanMinuten;
+            const relatedTp = await Teilprojekte.raw().findOne({ _id: tpId }, { session } );
             
-            // Erlöse Plan und Rest aktualisieren
-            // TODO ...
+            let updateableTpData: UpdateableAppData<Teilprojekt> = {};
+            updateableTpData.aufwandPlanMinuten = (relatedTp.aufwandPlanMinuten || 0) + NEW.aufwandPlanMinuten;
 
-            await Teilprojekte.updateOne(tpId, { aufwandPlanMinuten }, { session });
+            // Erlöse Plan aktualisieren
+            updateableTpData.erloesePlan = (relatedTp.erloesePlan || 0) + (NEW.gesamtpreis || 0);
+            
+            await Teilprojekte.updateOne(tpId, updateableTpData, { session });
 
             return { status: EnumMethodResult.STATUS_OKAY };
         },
@@ -629,9 +654,6 @@ export const Aktivitaeten = Consulting.createApp<Aktivitaet>({
                 NEW.aufwandRestMinuten = NEW.aufwandPlanMinuten - NEW.aufwandIstMinuten;
             }
 
-            if (hasChanged('aufwandPlan')) {
-
-            }
             if (hasChanged('aufwandPlan') || hasChanged('aufwandIst')) {
                 NEW.aufwandRest = currentValue("aufwandPlan") - currentValue('aufwandIst');
             }
@@ -657,17 +679,22 @@ export const Aktivitaeten = Consulting.createApp<Aktivitaet>({
         onAfterUpdate: async (_aktId, NEW, OLD, { session, hasChanged }) => {           
             const tpId = OLD.teilprojekt[0]._id;
             const relatedTp = await Teilprojekte.raw().findOne({ _id: tpId }, { session } );
-            const updateableTpData: UpdateableAppData<Teilprojekt> = {};
+
+            let tpData: UpdateableAppData<Teilprojekt> = {};
 
             if (hasChanged('aufwandPlanMinuten')) {
-                updateableTpData.aufwandPlanMinuten = (relatedTp.aufwandPlanMinuten || 0) + (NEW.aufwandPlanMinuten || 0) - (OLD.aufwandPlanMinuten || 0);
+                tpData.aufwandPlanMinuten = (relatedTp.aufwandPlanMinuten || 0) + (NEW.aufwandPlanMinuten || 0) - (OLD.aufwandPlanMinuten || 0);
             }
             if (hasChanged('aufwandIstMinuten')) {
-                updateableTpData.aufwandIstMinuten = (relatedTp.aufwandIstMinuten || 0) + (NEW.aufwandIstMinuten || 0) - (OLD.aufwandIstMinuten || 0);
+                tpData.aufwandIstMinuten = (relatedTp.aufwandIstMinuten || 0) + (NEW.aufwandIstMinuten || 0) - (OLD.aufwandIstMinuten || 0);
             }
 
-            if (Object.keys(updateableTpData).length) {
-                await Teilprojekte.updateOne(tpId, updateableTpData, { session });
+            if (hasChanged('gesamtpreis')) {
+                tpData.erloesePlan = (relatedTp.erloesePlan || 0) + (NEW.gesamtpreis || 0) - (OLD.gesamtpreis || 0);
+            }
+
+            if (Object.keys(tpData).length) {
+                await Teilprojekte.updateOne(tpId, tpData, { session });
             }
 
             return { status: EnumMethodResult.STATUS_OKAY };
@@ -687,10 +714,16 @@ export const Aktivitaeten = Consulting.createApp<Aktivitaet>({
         onAfterRemove: async function (OLD, { session }) {
             // das Löschen der Aktivität muss den Gesamtaufwand des Teilprojekts verringern
             const tpId = OLD.teilprojekt[0]._id;
-            const tp = await Teilprojekte.raw().findOne({ _id: tpId }, { session } );
-            const aufwandPlanMinuten:number = (tp.aufwandPlanMinuten || 0) - (OLD.aufwandPlanMinuten || 0);
+            const relatedTp = await Teilprojekte.raw().findOne({ _id: tpId }, { session } );
+
+            let tpData: UpdateableAppData<Teilprojekt> = {};
             
-            await Teilprojekte.updateOne(tpId, { aufwandPlanMinuten }, { session });
+            tpData.aufwandPlanMinuten = relatedTp.aufwandPlanMinuten - OLD.aufwandPlanMinuten;
+            tpData.erloesePlan = relatedTp.erloesePlan - OLD.gesamtpreis;
+
+            if (Object.keys(tpData).length) {
+                await Teilprojekte.updateOne(tpId, tpData, { session });
+            }
 
             return { status: EnumMethodResult.STATUS_OKAY };
         }

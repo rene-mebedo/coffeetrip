@@ -58,8 +58,6 @@ export const Record = ({ params, queryParams, currentUser, mode }) => {
     useOnceWhen(() => productStatus == EnumMethodResult.STATUS_OKAY && appStatus == EnumMethodResult.STATUS_OKAY && documentStatus != EnumMethodResult.STATUS_LOADING, () => {
         if (mode === 'NEW') {
             Meteor.call('__app.' + appId + '.getDefaults', {productId, appId, queryParams}, (err, result) => {
-                console.log('Result from Defaults', err, result);
-
                 if (err) {
                     return message.error('Es ist ein unbekannter Systemfehler beim ermitteln der Standardwerte aufgetreten. Bitte wenden Sie sich an den Systemadministrator.' + err.message);
                 } else {

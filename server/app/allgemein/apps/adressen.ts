@@ -1,21 +1,28 @@
-import { FieldNamesAndMessages } from "/imports/api/lib/helpers";
+import { FieldNamesAndMessages, getAppLink } from "/imports/api/lib/helpers";
 import { defaultSecurityLevel } from "../../security";
 import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
 
 import { Allgemein } from "/server/app/allgemein";
-import { Adressarten, AdressartenEnum } from "./kundenarten";
-import { IGenericApp, IGoogleMapsLocationProps } from "/imports/api/types/app-types";
+import { Adressarten, AdressartenEnum } from "./adressarten";
+import { DefaultAppData, IGenericApp, IGoogleMapsLocationProps, TAppLink } from "/imports/api/types/app-types";
 import { ReportAdressenByKundenart } from "../reports/adressen-by-kundenart";
 import { WidgetAdressenByKundenart } from "../reports/adressen-by-kundenart.widget";
 import { ChartAdressenByKundenart } from "../reports/adressen-by-kundenart.chart";
 import { getAppStore } from "/imports/api/lib/core"; 
+import { Preislisten } from "../../konfiguration/apps/preislisten";
+import { JaNeinEnum } from "./ja-nein-optionen";
 
 export interface Adresse extends IGenericApp {
     /**
      * Kennzeichung der Adresse ob diese ein Kunde, Hotel
      * Distributor, etc. ist
      */
-    adressart: AdressartenEnum;
+    adressart: AdressartenEnum
+
+    /**
+     * Logoadresse url oder base64 der Adresse
+     */
+    imageUrl: string
 
     /**
      * Allgemeine Anschriftsinformation Adressenzeile (1)
@@ -41,6 +48,21 @@ export interface Adresse extends IGenericApp {
      * Allgemeine Anschriftsinformation Ort
      */
     ort: string
+    /**
+     * Allgemeine Anschriftsinformation Land
+     */
+    land:  TAppLink
+    /**
+     * Preisliste, die für diese Adresse im weiteren Verlauf
+     * als Vorschlagswert verwandt werden soll
+     */
+    preisliste: TAppLink
+
+    /**
+     * Kennzeichnung der Adresse, die im Rechnungswesen für die Kontierung
+     * oder Umsatzsteuerermittlung, etc. eine abweichende Regelung aufweist
+     */
+    fibustatus: TAppLink
 }
 
 
@@ -82,6 +104,12 @@ export const Adressen = Allgemein.createApp<Adresse>({
                 { required: true, message: 'Bitte geben Sie eine kurze Beschreibung ein.' },    
             ],
             ...FieldNamesAndMessages('die', 'Beschreibung', 'die', 'Beschreibung'),
+            ...defaultSecurityLevel
+        },
+        imageUrl: {
+            type: EnumFieldTypes.ftString, 
+            rules: [ ],
+            ...FieldNamesAndMessages('die', 'Logo-Information (Link oder Base64)', 'die', 'Logo-Informationen'),
             ...defaultSecurityLevel
         },
 
@@ -142,6 +170,50 @@ export const Adressen = Allgemein.createApp<Adresse>({
             ...FieldNamesAndMessages('der', 'Ort', 'die', 'Orte', { onUpdate: 'den Ort' }),
             ...defaultSecurityLevel
         },
+        land: {
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'laender',
+                hasDescription: true,
+                linkable: true,
+                hasImage: true
+            },
+            rules: [
+                { required: true, message: 'Bitte geben Sie das Land an.' },    
+            ],
+            ...FieldNamesAndMessages('das', 'Land', 'die', 'Länder'),
+            ...defaultSecurityLevel
+        },
+
+        preisliste: {
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'preislisten',
+                hasDescription: true,
+                linkable: true,
+                hasImage: false
+            },
+            rules: [
+                { required: true, message: 'Bitte geben Sie die Preisliste an, die für diese Adresse als Vorschlag verwandt werden soll.' },    
+            ],
+            ...FieldNamesAndMessages('die', 'Preisliste', 'die', 'Preislisten'),
+            ...defaultSecurityLevel
+        },
+
+        fibustatus: {
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'fibustati',
+                hasDescription: true,
+                linkable: true,
+                hasImage: false
+            },
+            rules: [
+                { required: true, message: 'Bitte geben Sie den Fibustatus an.' },    
+            ],
+            ...FieldNamesAndMessages('der', 'Fibustatus', 'die', 'Fibustati', { onUpdate: 'den Fibustatus'}),
+            ...defaultSecurityLevel
+        }
     },
 
     layouts: {
@@ -154,6 +226,7 @@ export const Adressen = Allgemein.createApp<Adresse>({
             elements: [
                 { field: 'title', controlType: EnumControltypes.ctStringInput },
                 { field: 'description', title: 'Beschreibung', controlType: EnumControltypes.ctStringInput },
+                { field: 'imageUrl', controlType: EnumControltypes.ctStringInput },
                 { field: 'adressart', controlType: EnumControltypes.ctOptionInput, values: Adressarten },
 
                 { title: 'Allgemein', controlType: EnumControltypes.ctCollapsible, collapsedByDefault: true, elements: [
@@ -168,6 +241,7 @@ export const Adressen = Allgemein.createApp<Adresse>({
                             { field: 'strasse', controlType: EnumControltypes.ctStringInput },
                             { field: 'plz', controlType: EnumControltypes.ctStringInput },
                             { field: 'ort', controlType: EnumControltypes.ctStringInput },
+                            { field: 'land', controlType: EnumControltypes.ctAppLink },
                         ]},
                         { columnDetails: {xs:24,sm:24,md:24,lg:12,xl:12,xxl:12}, elements: [
                             { controlType: EnumControltypes.ctGoogleMap, googleMapDetails: {
@@ -187,6 +261,10 @@ export const Adressen = Allgemein.createApp<Adresse>({
                         ]}
                     ]}
                 ]},
+                { title: 'Kaufmännische Angaben', controlType: EnumControltypes.ctCollapsible, collapsedByDefault: false, elements: [
+                    { field: 'preisliste', controlType: EnumControltypes.ctAppLink },
+                    { field: 'fibustatus', controlType: EnumControltypes.ctAppLink }
+                ]}
             ]
         },
     },
@@ -207,9 +285,16 @@ export const Adressen = Allgemein.createApp<Adresse>({
 
     methods: {
         defaults: async function() {
+            let defaults: DefaultAppData<Adresse> = {}
+
+            const preisliste = Preislisten.findOne({ isStandard: JaNeinEnum.ja });
+            if (preisliste){
+                defaults.preisliste = getAppLink(preisliste, { link: '/allgemein/preislisten/' });
+            }
+
             return { 
                 status: EnumMethodResult.STATUS_OKAY,
-                defaults: {}
+                defaults
             }
         },
         

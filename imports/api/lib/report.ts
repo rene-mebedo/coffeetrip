@@ -39,7 +39,13 @@ export class Report {
     
         if (r.columns) {
             r.columns = r.columns.map( col => {
-                if (col.render && typeof col.render === 'function') col.render = col.render.toString()
+                if (col.render && isFunction(col.render)) col.render = col.render.toString()
+                if (col.children) {
+                    col.children = col.children.map( cchi => {
+                        if (cchi.render && isFunction(cchi.render)) cchi.render = cchi.render.toString()
+                        return cchi;
+                    })
+                }
                 return col;
             });
         }

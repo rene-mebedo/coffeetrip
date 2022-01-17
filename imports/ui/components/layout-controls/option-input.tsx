@@ -4,7 +4,7 @@ import Radio from 'antd/lib/radio';
 import Space from 'antd/lib/space';
 
 import { GenericControlWrapper, IGenericControlProps } from "./generic-control-wrapper";
-import { IAppLayoutElementOptionInput, IOptionInputValue } from '/imports/api/types/app-types';
+import { IAppLayoutElementOptionInput, IOptionValue } from '/imports/api/types/app-types';
 import { EnumDocumentModes } from '/imports/api/consts';
 
 // https://github.com/frenic/csstype#what-should-i-do-when-i-get-type-errors
@@ -24,7 +24,7 @@ export const OptionInput = (props: IGenericControlProps) => {
             <Radio.Group buttonStyle="outline" disabled={mode === EnumDocumentModes.SHOW}>
                 <Space direction={elem.direction || 'horizontal'}>
                     { 
-                        elem.values.map( (v: IOptionInputValue) => {
+                        elem.values.map( (v: IOptionValue<any>) => {
                             const c: string | number = v.color || '#fff';
                             const bc: string | number = v.backgroundColor || '#999';
 

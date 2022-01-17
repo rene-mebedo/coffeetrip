@@ -1,8 +1,10 @@
+import { Meteor } from "meteor/meteor";
+
 import { FieldNamesAndMessages, isOneOf } from "/imports/api/lib/helpers";
 import { defaultSecurityLevel } from "../../security";
 import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
 
-import { AppData, IAppLink, IGenericApp, TAppLink } from "/imports/api/types/app-types";
+import { AppData, IAppLink, IGenericApp, IGetDocumentResult, TAppLink } from "/imports/api/types/app-types";
 import { Consulting } from "..";
 import { StatusField } from "../../akademie/apps/seminare";
 import { Adresse, Adressen } from "../../allgemein/apps/adressen";
@@ -10,12 +12,12 @@ import { Projektstati } from "./projektstati";
 import { TeilprojekteByProjekt } from "../reports/teilprojekte-by-projekt";
 import { Teilprojekte } from "./teilprojekte";
 import { ProjekteByUser } from "../reports/projekte-by-user";
-import { calcMinutes, Einheiten, TEinheit } from "./einheiten";
-import { renderSimpleWidgetAufwandMitEinheit } from "./_helpers";
-import { Rechnungsempfaenger } from "./rechnungsempfaenger";
+import { calcMinutes, Einheiten, EinheitenEnum, TEinheit } from "./einheiten";
+import { Rechnungsempfaenger, RechnungsempfaengerEnum } from "./rechnungsempfaenger";
+
 
 /**
- * Steuerung wann die abweichende Rechnungsanschrift oder der Distributor
+ * Steuerung wann die abweichende Rechnungsanschrift
  * in Ihrer Eingabe aktiviert und wann gesperrt werden
  * 
  * @returns true/false
@@ -36,7 +38,13 @@ const enableRechnungsanschrift = (props: any): boolean => {
     return false;
 }
 
-const enableDistributor = (props: any): boolean => {
+/**
+ * Steuerung wann die Eingabe des Distributor
+ * aktiviert und wann gesperrt wird
+ * 
+ * @returns true/false
+ */
+ const enableDistributor = (props: any): boolean => {
     const { changedValues, allValues }: { changedValues: AppData<Projekt>, allValues: AppData<Projekt>} = props;
     if (!changedValues && !allValues) return false;
     
@@ -49,6 +57,50 @@ const enableDistributor = (props: any): boolean => {
     }
 
     return false;
+}
+
+/**
+ * Indivuduelles rendering für die SimpleWidget Komponente
+ * hier konkret Aufwand mit Einheit
+ * 
+ * @param value 
+ * @param doc 
+ * @returns 
+ */
+export const renderSimpleWidgetAufwandMitEinheit = (value: number, doc: AppData<any>): string | number | JSX.Element => {
+    if (!doc) return <div>?</div>;
+
+    const { singular, plural, faktor, precision } = doc.anzeigeeinheitDetails;
+    const aufwand = value / faktor;
+    let displayAufwand = +(Number(aufwand).toFixed(precision === undefined ? 2 : precision))
+    
+    return (
+        <div>
+            <span>{displayAufwand}</span>
+            <span style={{fontSize:12, marginLeft:8}}>{(aufwand == 1 ? singular:plural)}</span>
+        </div>
+    );
+}
+
+/**
+ * Individuelles rendering für die SimpleWidget Komponente
+ * hier konkret Währungen
+ * 
+ * @param value 
+ * @param doc 
+ * @returns 
+ */
+export const renderSimpleWidgetCurrency = (value: number, doc: AppData<any>): string | number | JSX.Element => {
+    if (!doc) return <div>?</div>;
+
+    let displayValue = Number(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",").replace(/\,/g, "K").replace(/\./g, ",").replace(/\K/g, ".");
+    
+    return (
+        <div>
+            <span>{displayValue}</span>
+            <span style={{fontSize:12, marginLeft:8}}>€</span>
+        </div>
+    );
 }
 
 export interface Projekt extends IGenericApp {
@@ -116,7 +168,7 @@ export interface Projekt extends IGenericApp {
      * Definition wie sich die Rechnungsanschrift, derRechnungsempfänger ergibt
      * 
      **/
-    rechnungsempfaenger: string
+    rechnungsempfaenger: RechnungsempfaengerEnum
 
     /**
      * Abweichende Rechnungsanschrift Firmenname (Adressenzeile 1)
@@ -150,18 +202,35 @@ export interface Projekt extends IGenericApp {
     /**
      * Abweichende Rechnungsanschrift Land
      */
-    rechnungLand: string
+    rechnungLand: TAppLink
 
     /**
      * Distributor, der als Rechnungsempfänger dient
      * wenn das Feld rechnungsempfaenger den Wert "distributor" hat
      */
     rechnungDistributor: TAppLink
+
+    /**
+     * Preisliste, die als Vorschlag aus dem Kunden herangezogen wird
+     * und für alle weiteren Preisermittlung innerhalb des Projekts
+     * herangezogen wird
+     */
+    preisliste: TAppLink
+
+    /**
+     * Mandant, so dass mit der Faktura bekannt ist wer der Rechnungsaussteller ist
+     * und entsprechende Angaben Absender, Bankverbindung, etc. auf den
+     * offiziellen Doumenten wie Angebot, Auftragsbestätigung und Rechnungen gedruckt werden kann
+     */
+    mandant: TAppLink
+
+    /**
+     * Leistungsland
+     */
+    leistungsland: TAppLink
 }
 
-export const Projekte = Consulting.createApp<Projekt>({
-    _id: 'projekte',
-    
+export const Projekte = Consulting.createApp<Projekt>('projekte', {
     title: "Projekte",
     description: "Alle Projekte der Consulting", 
     icon: 'fa-fw fas fa-atlas',
@@ -179,7 +248,7 @@ export const Projekte = Consulting.createApp<Projekt>({
     },
     
     sharedWith: [],
-    sharedWithRoles: ['EMPLOYEE'],
+    sharedWithRoles: ['EMPLOYEE', 'ADMIN'],
 
     fields: {
         title: {
@@ -203,9 +272,9 @@ export const Projekte = Consulting.createApp<Projekt>({
         kunde: {
             type: EnumFieldTypes.ftAppLink,
             appLink: {
-                app: Adressen,
+                app: 'adressen',
                 hasDescription: true,                
-                hasImage: false,
+                hasImage: true,
                 linkable: true,
                 link: (doc) => `/allgemein/adressen/${doc._id}`
             } as IAppLink<Adresse>,
@@ -387,7 +456,13 @@ export const Projekte = Consulting.createApp<Projekt>({
         },
 
         rechnungLand: {
-            type: EnumFieldTypes.ftString,
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'laender',
+                hasDescription: true,
+                hasImage: true,
+                linkable: true
+            },
             rules: [
                 { required: true, message: 'Bitte geben Sie das Land an.' },
             ],
@@ -398,21 +473,67 @@ export const Projekte = Consulting.createApp<Projekt>({
         rechnungDistributor: {
             type: EnumFieldTypes.ftAppLink,
             appLink: {
-                app: Adressen,
+                app: 'adressen',
                 hasDescription: true,                
-                hasImage: false,
+                hasImage: true,
                 linkable: true,
                 link: (doc) => `/allgemein/adressen/${doc._id}`
-            } as IAppLink<Adresse>,
+            },
             rules: [
                 { required: true, message: 'Bitte geben Sie den Distributor an.' },
             ],
             ...FieldNamesAndMessages('der', 'Distributor', 'die', 'Distributoren', { onUpdate: 'den Distributor' }),
             ...defaultSecurityLevel
         },
+
+        preisliste: {
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'preislisten',
+                hasDescription: true,
+                linkable: true,
+                hasImage: false
+            },
+            rules: [
+                //{ required: true, message: 'Bitte geben Sie die Preisliste an, die für diese Adresse als Vorschlag verwandt werden soll.' },    
+            ],
+            ...FieldNamesAndMessages('die', 'Preisliste', 'die', 'Preislisten'),
+            ...defaultSecurityLevel
+        },
+
+        mandant: {
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'mandanten',
+                hasDescription: true,
+                linkable: true,
+                hasImage: false
+            },
+            rules: [
+                { required: true, message: 'Bitte geben Sie den Mandanten an.' },
+            ],
+            ...FieldNamesAndMessages('der', 'Mandant', 'die', 'Mandanten', { onUpdate: 'den Mandanten'} ),
+            ...defaultSecurityLevel
+        },
+        
+        leistungsland: {
+            type: EnumFieldTypes.ftAppLink,
+            appLink: {
+                app: 'laender',
+                hasDescription: true,
+                hasImage: true,
+                linkable: true
+            },
+            rules: [
+                { required: true, message: 'Bitte geben Sie das Leistungsland an.' },
+            ],
+            ...FieldNamesAndMessages('das', 'Leistungsland', 'die', 'Leistungsländer'),
+            ...defaultSecurityLevel
+        },
+
     },
 
-    layouts: {       
+    layouts: {
         default: {
             title: 'Standard-layout',
             description: 'dies ist ein universallayout für alle Operationen',
@@ -424,23 +545,85 @@ export const Projekte = Consulting.createApp<Projekt>({
                     { columnDetails: { xs:24, sm:24, md:24, lg:18, xl:16, xxl:16 }, elements: [
                         { field: 'title', controlType: EnumControltypes.ctStringInput },
                         { field: 'description', title: 'Beschreibung', controlType: EnumControltypes.ctStringInput },
-                        { field: 'kunde', controlType: EnumControltypes.ctSingleModuleOption },
+                        { field: 'kunde', controlType: EnumControltypes.ctAppLink, onChange: ({changedValues, allValues, tools}) => {
+                            const { confirm, notification, message, invoke, setValue } = tools;
+                            
+                            // die Defaultgenerierung machen wir nur beim Neuzugang
+                            //if (mode != EnumDocumentModes.NEW) return;
+                            
+                            if ( // nur wenn ein Kunde ausgewählt ODER abgewählt wurde
+                                changedValues && changedValues.kunde) {
+                                if (changedValues.kunde && changedValues.kunde.length == 0) {
+                                    confirm({
+                                        title: 'Kunde entfernt',
+                                        content: <div>
+                                            <p>Die Preisliste steht in direkter Abhängigkeit zum Kunden. <strong>Möchten Sie diese ebenfalls für das Projet entfernen?</strong></p>
+                                            <p>So kann bei erneuter Kundenauswahl die Preisliste direkt wieder vom neu ausgewählten Kunden übernommen werden.</p>
+                                        </div>,
+                                        onOk: () => setValue('preisliste', undefined)
+                                    });
+                                }
+                            }
+
+                            if ( // nur wenn ein Kunde ausgewählt wurde
+                                changedValues.kunde && changedValues.kunde.length > 0 &&
+                                // und noch keine Preisliste durch den Anwender eingetragen ist
+                                ((allValues && allValues.preisliste === undefined) || (allValues && allValues.preisliste && allValues.preisliste.length == 0))
+                            ) {
+                                const setPreisliste = () => {
+                                    invoke('adressen.getDocument', changedValues.kunde[0]._id, (err: Meteor.Error, result: IGetDocumentResult<Adresse>) => {
+                                        if (err) {
+                                            message.error('Es ist ein unbekannter Fehler aufgetreten.' + err.message);
+                                            console.log(err);
+                                        } else {
+                                            if (result.status != EnumMethodResult.STATUS_OKAY) {
+                                                message.warning(result.statusText);
+                                            }
+                                            const pl = result.document?.preisliste;
+                                            if (!pl) return;
+
+                                            setValue('preisliste', pl);
+
+                                            notification.info({
+                                                message: `Preisliste übernommen`,
+                                                description: <span>Die Preisliste <strong>{pl[0].title}</strong> wurde aus Ihrer Kundeneingabe übernommen.<br/>Um diese zu Ändern prüfen Sie bitte die kaufmännischen Angaben.</span>
+                                            });
+                                        }
+                                    });
+                                };
+
+                                /*confirm({
+                                    title: 'Rückfrage',
+                                    content: 'Möchten Sie die Preisliste des Kunden übernehmen?',
+                                    onOk: setPreisliste
+                                });*/
+                                setPreisliste();
+                            }
+                        }},
                         { field: 'zeitraum', controlType: EnumControltypes.ctDatespanInput },
                         { field: 'status', controlType: EnumControltypes.ctOptionInput, values: Projektstati },
                     ]},
                     { columnDetails: { xs:24, sm:24, md:24, lg:6, xl:8, xxl:8 }, elements: [
                         { controlType: EnumControltypes.ctColumns, columns: [
                             { columnDetails: { xs:24, sm:12, md:12, lg: 12, xl:12, xxl:12 }, elements: [
-                                { field: 'erloesePlan', title: 'Projekterlöse (Plan)', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-dollar-sign'},
+                                { field: 'erloesePlan', title: 'Projekterlöse (Plan)', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-dollar-sign',
+                                    render: renderSimpleWidgetCurrency
+                                },
                             ]},
                             { columnDetails: { xs:24, sm:12, md:12, lg: 12, xl:12, xxl:12 }, elements: [
-                                { field: 'erloeseIst', title: 'Ist', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-file-invoice-dollar'},
+                                { field: 'erloeseIst', title: 'Ist', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-file-invoice-dollar',
+                                render: renderSimpleWidgetCurrency
+                            },
                             ]},
                             { columnDetails: { xs:24, sm:12, md:12, lg: 12, xl:12, xxl:12 }, elements: [
-                                { field: 'erloeseForecast', title: 'Forecast', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-funnel-dollar'},
+                                { field: 'erloeseForecast', title: 'Forecast', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-funnel-dollar',
+                                render: renderSimpleWidgetCurrency
+                            },
                             ]},
                             { columnDetails: { xs:24, sm:12, md:12, lg: 12, xl:12, xxl:12 }, elements: [
-                                { field: 'erloeseRest', title: 'Rest', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-search-dollar' },
+                                { field: 'erloeseRest', title: 'Rest', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-search-dollar',
+                                render: renderSimpleWidgetCurrency
+                            },
                             ]}
                         ]},
                         { controlType: EnumControltypes.ctColumns, columns: [
@@ -467,8 +650,11 @@ export const Projekte = Consulting.createApp<Projekt>({
                     { field: 'anzeigeeinheit', controlType:EnumControltypes.ctOptionInput, values: Einheiten}
                 ]},
                 { title: 'Kaufmännische Angaben', controlType: EnumControltypes.ctCollapsible, elements: [
+                    { field: 'mandant', controlType: EnumControltypes.ctAppLink },
+                    { field: 'preisliste', controlType: EnumControltypes.ctAppLink },
+                    { field: 'leistungsland', controlType: EnumControltypes.ctAppLink },
                     { field: 'rechnungsempfaenger', controlType:EnumControltypes.ctOptionInput, values: Rechnungsempfaenger },
-                    { field: 'rechnungDistributor', controlType: EnumControltypes.ctSingleModuleOption, enabled: enableDistributor, visible: enableDistributor },
+                    { field: 'rechnungDistributor', controlType: EnumControltypes.ctAppLink, enabled: enableDistributor, visible: enableDistributor },
                     { field: 'rechnungFirma1', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
                     { field: 'rechnungFirma2', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
                     { field: 'rechnungFirma3', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
@@ -477,7 +663,7 @@ export const Projekte = Consulting.createApp<Projekt>({
                         { field: 'rechnungPlz', noTitle: true, controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
                         { field: 'rechnungOrt', title: 'Ort', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
                     ]},
-                    { field: 'rechnungLand', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },
+                    { field: 'rechnungLand', controlType: EnumControltypes.ctStringInput, enabled: enableRechnungsanschrift, visible: enableRechnungsanschrift },            
                 ]},
 
                 { controlType: EnumControltypes.ctReport, reportId: TeilprojekteByProjekt.reportId }
@@ -502,7 +688,7 @@ export const Projekte = Consulting.createApp<Projekt>({
     methods: {
         defaults: async function () {
             const stundenProTag = 8;
-            const defaultEinheit = Einheiten.find( e => e._id === 'tage');
+            const defaultEinheit = Einheiten.find( e => e._id === EinheitenEnum.tage);
 
             if (!defaultEinheit) {
                 return {
@@ -529,7 +715,7 @@ export const Projekte = Consulting.createApp<Projekt>({
                         faktor: calcMinutes(1, defaultEinheit as TEinheit, stundenProTag),
                         precision: (defaultEinheit as TEinheit).options.precision
                     },
-                    rechnungsempfaenger: 'kunde'
+                    rechnungsempfaenger: RechnungsempfaengerEnum.kunde
                 }
             }
         },
@@ -547,6 +733,18 @@ export const Projekte = Consulting.createApp<Projekt>({
                 return { status: EnumMethodResult.STATUS_ABORT, statusText: `Die Anzeigeeinheit "${NEW.anzeigeeinheit}" konnte in Ihrer Beschreibung nicht gefunden werden.` };
             }
 
+            // wenn noch keine Preisliste für das Projekt eingetragen ist,
+            // dann nun die Preisliste gemäß der Adressenstammdaten übernehmen
+            if (!NEW.preisliste) {
+                const adr = Adressen.findOne(NEW.kunde[0]._id);
+
+                if (adr && adr.preisliste && adr.preisliste.length) {
+                    NEW.preisliste = adr?.preisliste;
+                } else {
+                    return { status: EnumMethodResult.STATUS_ABORT, statusText: `Die Adresse "${NEW.kunde[0].title}" konnte in Ihrer Beschreibung nicht gefunden werden oder besitzt keine gültige Preisliste.` };
+                }
+            }
+
             if (isOneOf(NEW.rechnungsempfaenger, ['kunde', 'distributor'])) {
                 // leeren der Felder für die abweichende Rechnungsaschrift, die ggf. im Dialog zuvor erfasst wurden
                 // und nachträglich wurde die Steuerung umgestellt
@@ -556,7 +754,7 @@ export const Projekte = Consulting.createApp<Projekt>({
                 NEW.rechnungStrasse = '';
                 NEW.rechnungPlz = '';
                 NEW.rechnungOrt = '';
-                NEW.rechnungLand = '';
+                NEW.rechnungLand = [];
             }
 
             if (isOneOf(NEW.rechnungsempfaenger, ['kunde', 'abweichend'])) {
@@ -568,9 +766,13 @@ export const Projekte = Consulting.createApp<Projekt>({
             return { status: EnumMethodResult.STATUS_OKAY };
         },
 
-        onBeforeUpdate: async function (_projektId, NEW, OLD, { hasChanged }) {
-            if (hasChanged('aufwandPlanMinuten')) {
-                NEW.aufwandRestMinuten = (NEW.aufwandPlanMinuten || 0) - (OLD.aufwandIstMinuten || 0);
+        onBeforeUpdate: async function (_projektId, NEW, _OLD, { hasChanged, currentValue }) {
+            if (hasChanged('aufwandPlanMinuten') || hasChanged('aufwandIstMinuten')) {
+                NEW.aufwandRestMinuten = currentValue('aufwandPlanMinuten') - currentValue('aufwandIstMinuten');
+            }
+
+            if (hasChanged('erloesePlan') || hasChanged('erloeseIst')) {
+                NEW.erloeseRest = currentValue('erloesePlan') - currentValue('erloeseIst')
             }
 
             if (hasChanged('anzeigeeinheit')) {
@@ -596,7 +798,7 @@ export const Projekte = Consulting.createApp<Projekt>({
                 NEW.rechnungStrasse = '';
                 NEW.rechnungPlz = '';
                 NEW.rechnungOrt = '';
-                NEW.rechnungLand = '';
+                NEW.rechnungLand = [];
             }
 
             if (isOneOf(NEW.rechnungsempfaenger, ['kunde', 'abweichend'])) {

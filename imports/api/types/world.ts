@@ -6,6 +6,7 @@ import { ChartOptions, ChartData } from 'chart.js';
 
 import { ModalFunc } from 'antd/lib/modal/confirm';
 import { MessageApi } from 'antd/lib/message';
+//import { ColumnsType } from 'antd/lib/table';
 
 export interface IUserShort {
     userId: string,
@@ -66,10 +67,12 @@ export interface IChartData {
     options: ChartOptions, data: ChartData
 }
 
+export type TMoment = (momentInput: any) => moment.Moment;
 
 export interface IReportRendererExtras {
     injectables: TInjectables
-    isExport: boolean
+    isExport: boolean,
+    moment: TMoment
 }
 
 export type TColumnRenderer<T> = string | ((columnData: any, doc:AppData<T>, extras: IReportRendererExtras) => string | JSX.Element)
@@ -86,11 +89,13 @@ export interface IReportDatasourceProps<T>{
 export type TReportDatasource<T> = string | ((props: IReportDatasourceProps<T>) => Mongo.Cursor<T> | { fetch: () => any } | void | Array<any> );
 
 export interface IReportColumns<T> {
-    key: string
-    dataIndex: string
     title: string
-    render?: TColumnRenderer<T> //string | ((columnData: any, doc:AppData<any>, extras: IReportRendererExtras) => string | JSX.Element) | undefined
+    key?: string
+    dataIndex?: string
+    render?: TColumnRenderer<T>
     align?: 'left' | 'right' | 'center'
+
+    children?: Array<IReportColumns<T>>
 }
 
 export interface IReport<T, Caller> {
@@ -104,7 +109,7 @@ export interface IReport<T, Caller> {
     type: 'table' | 'chart' | 'widget'
     chartType?: 'bar' | 'line' | 'pie'
     icon?:string
-    columns?: Array<IReportColumns<T>>
+    columns?: Array<IReportColumns<T>> // im original antd = ColumnsType<any>
     isStatic: boolean
     staticDatasource?: TReportDatasource<Caller>
     liveDatasource?: TReportDatasource<Caller>

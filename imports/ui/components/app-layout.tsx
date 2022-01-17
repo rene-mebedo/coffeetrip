@@ -2,7 +2,7 @@ import React, { Fragment } from 'react';
 
 import { EnumControltypes, EnumDocumentModes } from '/imports/api/consts';
 import { GoogleMap } from './layout-controls/gogle-maps';
-import { SingleModuleOption } from './layout-controls/app-link';
+import { AppLinkInput, SingleModuleOption } from './layout-controls/app-link';
 import { StringInput, TextInput } from './layout-controls/string-input';
 import { HtmlInput } from './layout-controls/html-input';
 import { DateInput, DatespanInput, TimespanInput, YearInput } from './layout-controls/date-input';
@@ -63,6 +63,7 @@ export const LayoutElements = (props:IAppLayoutElementProps): JSX.Element => {
                 if (elem.controlType === EnumControltypes.ctSpacer ) return <Spacer {...props} key={key} elem={elem} />
 
                 if (elem.controlType === EnumControltypes.ctSingleModuleOption ) return <SingleModuleOption {...props} key={key} elem={elem} />
+                if (elem.controlType === EnumControltypes.ctAppLink ) return <AppLinkInput {...props} key={key} elem={elem} />
 
                 if (elem.controlType === EnumControltypes.ctReport ) return <ReportControl {...props} key={key} elem={elem} environment='Document' reportId={(elem as IAppLayoutElementReport<any>).reportId} title={elem.title} />
                 if (elem.controlType === EnumControltypes.ctColumns ) return <Columns {...props} key={key} elem={elem} />

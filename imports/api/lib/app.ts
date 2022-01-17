@@ -25,7 +25,7 @@ import { MethodInvocationFunction } from "./types";
 import { World } from "./world";
 import moment from 'moment'
 
-import { AppData, IActivitiesReplyToProps, IApp, IDefaultAppData, IGenericAppLinkOptionsResult, IGenericDefaultResult, IGenericInsertArguments, IGenericInsertResult, IGenericRemoveArguments, IGenericRemoveResult, IGenericUpdateArguments, IGenericUpdateResult, IGetAppLinkOptionProps, IGetUsersSharedWithResult, ILockResult, IPostProps, TAppLink, UpdateableAppData } from "/imports/api/types/app-types";
+import { AppData, IActivitiesReplyToProps, IApp, IDefaultAppData, IGenericAppLinkOptionsResult, IGenericDefaultResult, IGenericInsertArguments, IGenericInsertResult, IGenericRemoveArguments, IGenericRemoveResult, IGenericUpdateArguments, IGenericUpdateResult, IGetAppLinkOptionProps, IGetDocumentResult, IGetUsersSharedWithResult, ILockResult, IPostProps, TAppLink, UpdateableAppData } from "/imports/api/types/app-types";
 import { injectUserData } from "./roles";
 import { Activities } from "./activities";
 import SimpleSchema from "simpl-schema";
@@ -156,6 +156,7 @@ export class App<T> {
                 }
                 
                 f.appLink.app = refAppId;
+                console.log('Applink:', refAppId);
 
                 if (isFunction(f.appLink.description)) f.appLink.description = f.appLink.description.toString();
                 if (isFunction(f.appLink.link)) f.appLink.link = f.appLink.link.toString();
@@ -236,6 +237,10 @@ export class App<T> {
     
                         if (elem.visible) {
                             elem.visible = elem.visible.toString();
+                        }
+
+                        if (elem.onChange) {
+                            elem.onChange = elem.onChange.toString();
                         }
 
                         if (elem.render) {
@@ -329,6 +334,7 @@ export class App<T> {
             ['__app.' + this.appId + '.getDefaults']: this.getDefaults(),
             ['__app.' + this.appId + '.getAppLinkOptions']: this.getAppLinkOptions(),
             ['__app.' + this.appId + '.getUsersSharedWith']: this.getUsersSharedWith(),
+            ['__app.' + this.appId + '.getDocument']: this.getDocument(),
             ['__app.' + this.appId + '.insertDocument']: this.insertDocument(),
             ['__app.' + this.appId + '.updateDocument']: this.updateDocument(),
             ['__app.' + this.appId + '.removeDocument']: this.removeDocument(),
@@ -404,8 +410,10 @@ export class App<T> {
                 'values.$': { 
                     type: new SimpleSchema({
                         _id: { type: String },
+                        title: { type: String },
                         description: { type: String },
-                        link: { type: String },
+                        link: { type: String, optional: true },
+                        imageUrl: { type: String, optional: true }
                     }) 
                 },
             }).validate(info);
@@ -550,6 +558,31 @@ export class App<T> {
         }
     }
 
+    private getDocument():MethodInvocationFunction {
+        const self = this;
+
+        return function(this:{userId:string}, docId: string):IGetDocumentResult<T> {
+            
+            try {
+                check(docId, String);
+            } catch (err){
+                return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: `Die angegebenen Parameter entsprechen nicht der Signatur für "${self.appId}.getDocument()"` }
+            }
+
+            const currentUser = <IWorldUser>Meteor.users.findOne(this.userId);
+
+            if (!currentUser) {
+                return { status: EnumMethodResult.STATUS_NOT_LOGGED_IN, statusText: 'Sie sind nicht am System angemeldet' }
+            }
+            
+            const currentDocument = self.findOne({_id: docId});
+            if (!currentDocument) {
+                return { status: EnumMethodResult.STATUS_NOT_FOUND, statusText: 'Das angegebene Dokument wurde nicht gefunden.' }
+            }
+
+            return { status: EnumMethodResult.STATUS_OKAY, document: currentDocument };
+        }
+    }
 
     private post():MethodInvocationFunction {
         const self = this;
@@ -823,6 +856,7 @@ export class App<T> {
             ]
         }
 
+        // TODO: !!!! projection gemäß der Felder, die für den aktuellen User freigegeben sind
         return this.collection.findOne(querySelector, options);
     }
 

@@ -5,7 +5,7 @@ import { GoogleMap } from './layout-controls/gogle-maps';
 import { SingleModuleOption } from './layout-controls/app-link';
 import { StringInput, TextInput } from './layout-controls/string-input';
 import { HtmlInput } from './layout-controls/html-input';
-import { DateInput, DatespanInput, YearInput } from './layout-controls/date-input';
+import { DateInput, DatespanInput, TimespanInput, YearInput } from './layout-controls/date-input';
 import { OptionInput } from './layout-controls/option-input';
 import { Collapsible } from './layout-controls/collapsible';
 import { DividerControl } from './layout-controls/divider';
@@ -54,6 +54,7 @@ export const LayoutElements = (props:IAppLayoutElementProps): JSX.Element => {
                 if (elem.controlType === EnumControltypes.ctOptionInput ) return <OptionInput {...props} key={key} elem={elem} />
                 if (elem.controlType === EnumControltypes.ctDateInput ) return <DateInput {...props} key={key} elem={elem} />
                 if (elem.controlType === EnumControltypes.ctDatespanInput ) return <DatespanInput {...props} key={key} elem={elem} />
+                if (elem.controlType === EnumControltypes.ctTimespanInput) return <TimespanInput {...props} key={key} elem={elem} />
                 if (elem.controlType === EnumControltypes.ctYearInput ) return <YearInput {...props} key={key} elem={elem} />
 
                 if (elem.controlType === EnumControltypes.ctCollapsible ) return <Collapsible {...props} key={key} elem={elem} />

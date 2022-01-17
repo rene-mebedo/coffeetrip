@@ -18,7 +18,7 @@ if (!Accounts.findUserByUsername(USERNAME)) {
                 userData: {
                     firstName: 'IT',
                     lastName: 'Administrator',
-                    roles: ['EVERYBODY', 'ADMIN']
+                    roles: ['EVERYBODY', 'ADMIN', 'EMPLOYEE']
                 }
             }
         });

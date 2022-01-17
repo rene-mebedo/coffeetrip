@@ -6,6 +6,7 @@ import './fixtures/accounts';
 
 import './app/mebedo-world';
 import './app/akademie/';
+import './app/akademie/apps/seminarmodule';
 import './app/akademie/apps/seminare';
 import './app/akademie/apps/seminarteilnehmer';
 

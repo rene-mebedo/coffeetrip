@@ -24,7 +24,7 @@ export const Seminarteilnehmer = Akademie.createApp<Seminarteilnehmer>({
     title: "Seminarteilnehmer", 
     description: "Alle Seminarteilnehmer, die ein Seminar angeboten oder teilgenommen haben.", 
     icon: 'fa-fw far fa-user',
-    position: 2,
+    position: 3,
 
     namesAndMessages: {
         singular: { mitArtikel: 'der Seminarteilnehmer', ohneArtikel: 'Seminarteilnehmer' },

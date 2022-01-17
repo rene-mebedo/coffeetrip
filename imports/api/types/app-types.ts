@@ -244,6 +244,7 @@ export interface IAppLayoutElementGenericInput<T> extends IGenericAppLayoutEleme
                  EnumControltypes.ctCurrencyInput | 
                  EnumControltypes.ctDateInput | 
                  EnumControltypes.ctDatespanInput | 
+                 EnumControltypes.ctTimespanInput | 
                  EnumControltypes.ctYearInput | 
                  EnumControltypes.ctHtmlInput |
                  EnumControltypes.ctSingleModuleOption |

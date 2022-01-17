@@ -28,6 +28,7 @@ export enum EnumControltypes {
     ctHtmlInput = 'Html',
     ctDateInput = 'Date',
     ctDatespanInput = 'Datespan',
+    ctTimespanInput = 'Timespan',
     ctYearInput = 'Year',
     ctInlineCombination = 'InlineCombination',
     ctSpacer = 'Spacer',

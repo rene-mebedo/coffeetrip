@@ -30,7 +30,7 @@ export const Seminare = Akademie.createApp<Seminar>({
     title: "Seminare",
     description: "Alle Seminare, die von uns angeboten werden.", 
     icon: 'fa-fw fas fa-graduation-cap',
-    position: 1,
+    position: 2,
     
     namesAndMessages: {
         singular: { mitArtikel: 'das Seminar', ohneArtikel: 'Seminar' },

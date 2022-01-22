@@ -25,3 +25,4 @@ accounts-password@2.2.0
 less
 jquery
 ostrio:files
+meteortesting:mocha

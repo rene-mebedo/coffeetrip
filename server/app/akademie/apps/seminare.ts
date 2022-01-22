@@ -5,7 +5,8 @@ import { EnumControltypes, EnumFieldTypes } from "/imports/api/consts";
 import { Akademie } from "/server/app/akademie";
 import { Seminarstati } from "./seminarstati";
 import { IGenericApp } from "/imports/api/types/app-types";
-import { SeminarteilnehmerBySeminar } from "../reports/seminarteilnehmer-by-seminar";
+import { DefaultAppActions } from "../../defaults";
+
 
 export interface Seminar extends IGenericApp {
     seminar: string
@@ -135,36 +136,17 @@ export const Seminare = Akademie.createApp<Seminar>({
                 { field: 'status', controlType: EnumControltypes.ctOptionInput, values: Seminarstati, direction: 'horizontal', defaultValue: 'kunde' },
                 { field: 'seminar', controlType: EnumControltypes.ctStringInput },
                 { field: 'beschreibung', controlType: EnumControltypes.ctHtmlInput },
-                { title: 'Semteil', controlType: EnumControltypes.ctReport, reportId: SeminarteilnehmerBySeminar.reportId },
+                { title: 'Semteil', controlType: EnumControltypes.ctReport, reportId: 'seminarteilnehmer-by-seminar' },
             ]
         },
     },
 
     actions: {
-        neu: {
-            isPrimaryAction: true,
-
-            description: 'Neuzugang eines Seminars',
-            icon: 'fas fa-plus',
-            
-            visibleBy: [ 'ADMIN', 'EMPLOYEE' ],
-            executeBy: [ 'ADMIN', 'EMPLOYEE' ],
-
-            onExecute: { redirect: '/akademie/seminare/new' }
-        },
+        ...DefaultAppActions.newDocument([ 'ADMIN', 'EMPLOYEE' ])
     },
 
     methods: {
-        defaults: () => {
-            // default für Status = "angelegt"
-            return {
-                title:'test',
-                datumVonBis: [new Date(), new Date()],
-                seminar: 'Seminartitel....',
-                beschreibung: '<h1>Ziel</h1><p>Bitte geben Sie hier das Ziel des Seminars ein.</p><h1>Inhalt</h1><p>und hier noch ein bisschen Inhalt bitte...</p>',
-                status: 'geplant'
-            }
-        },
+        
     },
 
     dashboardPicker: () => {

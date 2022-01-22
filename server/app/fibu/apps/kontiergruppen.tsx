@@ -9,6 +9,7 @@ import { getAppStore } from "/imports/api/lib/core";
 
 import { JaNeinEnum, JaNeinOptionen } from "../../allgemein/apps/ja-nein-optionen";
 import { Fibu } from "..";
+import { DefaultAppActions } from "../../defaults";
 
 export interface Kontiergruppe extends IGenericApp {
 
@@ -73,17 +74,7 @@ export const Kontiergruppen = Fibu.createApp<Kontiergruppe>('kontiergruppen', {
     },
 
     actions: {
-        neu: {
-            isPrimaryAction: true,
-
-            description: 'Neuzugang einer Kontiergruppe',
-            icon: 'fas fa-plus',
-            
-            visibleBy: [ 'ADMIN' ],
-            executeBy: [ 'ADMIN' ],
-
-            onExecute: { redirect: '/fibu/kontiergruppen/new' }
-        },
+        ...DefaultAppActions.newDocument(['ADMIN'])
     },
 
     methods: {
@@ -105,9 +96,7 @@ export const Kontiergruppen = Fibu.createApp<Kontiergruppe>('kontiergruppen', {
 });
 
 
-export const ReportKontiergruppenAll = MebedoWorld.createReport<Kontiergruppe, never>('kontiergruppen-all', {
-    type: 'table',
-    
+export const ReportKontiergruppenAll = MebedoWorld.createReport<Kontiergruppe, never>('kontiergruppen-all', {   
     title: 'Alle Kontiergruppen',
     description: 'Zeigt alle Kontiergruppen.',
 
@@ -131,19 +120,22 @@ export const ReportKontiergruppenAll = MebedoWorld.createReport<Kontiergruppe, n
         return $Kg.find({}, { sort: { title: 1 } });
     },
 
-    columns: [
-        {
-            title: 'Kontiergruppe',
-            key: 'title',
-            dataIndex: 'title',
+    type: 'table',
+    tableDetails: {
+        columns: [
+            {
+                title: 'Kontiergruppe',
+                key: 'title',
+                dataIndex: 'title',
 
-        },
-        {
-            title: 'Kurzbeschreibung',
-            key: 'description',
-            dataIndex: 'description',
-        },
-    ],
+            },
+            {
+                title: 'Kurzbeschreibung',
+                key: 'description',
+                dataIndex: 'description',
+            },
+        ],
+    },
 
     actions: [
         {
@@ -184,7 +176,7 @@ export const ReportKontiergruppenAll = MebedoWorld.createReport<Kontiergruppe, n
                         title: `Kontierguppe löschen?`,
                         content: <div>Das Löschen der Kontiergruppe <b>{row.title}</b> kann nicht rückgängig gemacht werden!</div>,
                         onOk() {
-                            invoke('kontiergruppen.removeDocument', { productId: 'fibu', appId: 'kontiergruppen', docId: row._id }, (err: any, res: IGenericRemoveResult) => {
+                            invoke('kontiergruppen.removeDocument', row._id, (err: any, res: IGenericRemoveResult) => {
                                 if (err) {
                                     console.log(err);
                                     return message.error('Es ist ein unbekannter Fehler aufgetreten.');

@@ -737,6 +737,15 @@ a[href="https://markerjs.com/"] {
     }
 }
 
+.mbac-app-action-remove {
+    color: red;
+    &:hover {
+        color: #fff !important;
+        background-color: rgb(131, 42, 42) !important;
+        border-color: red !important;
+    }
+}
+
 .mbac-layout-element {
     &.mbac-input {
         &.mbac-currency {
@@ -750,6 +759,71 @@ a[href="https://markerjs.com/"] {
         .ant-form-item-control-input-content {
             display: inline-flex;
             column-gap: 12px;
+        }
+    }
+
+    // Card-report-styling für Dashboards
+    &.mbac-report {
+        &.mbac-report-type-card {
+            &.mbac-mode-dashboard {
+                .mbac-card-cover {
+                    padding: 16px;
+                    background-color: #f9f9f9;
+                    border: 1px solid #ccc;
+                    text-align: center;
+
+                    > img {
+                        width: auto;
+                        vertical-align: middle;
+                        border-style: none;
+                        height: 150px;
+                        max-width: 250px;
+                        text-align: center;
+                    }
+
+                    .ant-statistic-content {
+                        color: #777;
+                    }
+                    
+                    .ant-progress-inner {
+                        background-color: #fff;
+                    }
+                }
+
+                .ant-card-body {
+                    //padding: 24px;
+                    height: 350px;
+                    overflow: hidden;
+                }
+
+                .ant-card-bordered {
+                    border: 1px solid #ccc;
+                }
+
+                .mbac-description-content {
+                    color: unset;
+                }
+            }
+        }
+    }
+}
+
+/* individuelle Reportsyteling ***/
+.mbac-report {
+    &.mbac-report-dozenten-all {
+        .mbac-card-cover {
+            padding: unset !important;
+
+            > img {
+                width: 100% !important;
+                height: unset !important;
+                max-width: unset !important;
+            }
+        }
+
+        .ant-card-body {
+            height: unset !important;
+            overflow: unset !important;
         }
     }
 }
@@ -780,7 +854,11 @@ a[href="https://markerjs.com/"] {
 
 
 .report-general-actions {
-    float: right
+    //float: right;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    text-align: right;
+    border-bottom: 1px solid #eee;
 }
 
 .module-list-input-selected-items {

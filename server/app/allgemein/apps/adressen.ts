@@ -5,12 +5,10 @@ import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api
 import { Allgemein } from "/server/app/allgemein";
 import { Adressarten, AdressartenEnum } from "./adressarten";
 import { DefaultAppData, IGenericApp, IGoogleMapsLocationProps, TAppLink } from "/imports/api/types/app-types";
-import { ReportAdressenByKundenart } from "../reports/adressen-by-kundenart";
-import { WidgetAdressenByKundenart } from "../reports/adressen-by-kundenart.widget";
-import { ChartAdressenByKundenart } from "../reports/adressen-by-kundenart.chart";
 import { getAppStore } from "/imports/api/lib/core"; 
 import { Preislisten } from "../../konfiguration/apps/preislisten";
 import { JaNeinEnum } from "./ja-nein-optionen";
+import { DefaultAppActions } from "../../defaults";
 
 export interface Adresse extends IGenericApp {
     /**
@@ -270,17 +268,8 @@ export const Adressen = Allgemein.createApp<Adresse>({
     },
 
     actions: {
-        neu: {
-            isPrimaryAction: true,
-
-            description: 'Neuzugang einer Adresse',
-            icon: 'fas fa-plus',
-            
-            visibleBy: [ 'ADMIN', 'EMPLOYEE' ],
-            executeBy: [ 'ADMIN', 'EMPLOYEE' ],
-
-            onExecute: { redirect: '/allgemein/adressen/new' }
-        },
+        ...DefaultAppActions.newDocument(['ADMIN', 'EMPLOYEE']),
+        ...DefaultAppActions.editDocument(['ADMIN', 'EMPLOYEE']),
     },
 
     methods: {
@@ -330,16 +319,16 @@ export const Adressen = Allgemein.createApp<Adresse>({
             rows: [
                 {
                     elements: [
-                        { _id:'anzahl-kunden', width: { xs:24, sm:24, md: 12, lg: 6 },  type: 'report', details: { type: 'widget', reportId: WidgetAdressenByKundenart.reportId, document: { adressart: 'kunde' } } },
-                        { _id:'anzahl-interessenten', width: { xs:24, sm:24, md: 12, lg: 6 },  type: 'report', details: { type: 'widget', reportId: WidgetAdressenByKundenart.reportId, document: { adressart: 'interessent' } } },
-                        { _id:'anzahl-partner', width: { xs:24, sm:24, md: 12, lg: 6 },  type: 'report', details: { type: 'widget', reportId: WidgetAdressenByKundenart.reportId, document: { adressart: 'partner' } } },
-                        { _id:'anzahl-hotels', width: { xs:24, sm:24, md: 12, lg: 6 },  type: 'report', details: { type: 'widget', reportId: WidgetAdressenByKundenart.reportId, document: { adressart: 'hotel' } } }
+                        { _id:'anzahl-kunden', width: { xs:24, sm:24, md: 12, lg: 6 },  type: 'report', details: { type: 'widget', reportId: 'adressen-by-kundenart.widget', document: { adressart: 'kunde' } } },
+                        { _id:'anzahl-interessenten', width: { xs:24, sm:24, md: 12, lg: 6 },  type: 'report', details: { type: 'widget', reportId: 'adressen-by-kundenart.widget', document: { adressart: 'interessent' } } },
+                        { _id:'anzahl-partner', width: { xs:24, sm:24, md: 12, lg: 6 },  type: 'report', details: { type: 'widget', reportId: 'adressen-by-kundenart.widget', document: { adressart: 'partner' } } },
+                        { _id:'anzahl-hotels', width: { xs:24, sm:24, md: 12, lg: 6 },  type: 'report', details: { type: 'widget', reportId: 'adressen-by-kundenart.widget', document: { adressart: 'hotel' } } }
                     ]
                 },
                 {
                     elements: [
-                        { _id:'adressen-static-sonstige', width: { xs: 24, sm:24, md:24, lg:12 },  type: 'report', details: { type: 'table', reportId: ReportAdressenByKundenart.reportId, document: { adressart: 'sonstiges' } } },
-                        { _id:'adressen-kundenarten', width: { xs: 24, sm:24, md:24, lg:12 },  type: 'report', details: { type: 'chart', chartType:'bar', reportId: ChartAdressenByKundenart.reportId } },
+                        { _id:'adressen-static-sonstige', width: { xs: 24, sm:24, md:24, lg:12 },  type: 'report', details: { type: 'table', reportId: 'adressen-by-kundenart', document: { adressart: 'sonstiges' } } },
+                        { _id:'adressen-kundenarten', width: { xs: 24, sm:24, md:24, lg:12 },  type: 'report', details: { type: 'chart', chartType:'bar', reportId: 'adressen-by-kundenart.chart' } },
                     ]
                 },
             ]

@@ -8,6 +8,7 @@ import { MebedoWorld } from "../../mebedo-world";
 import { getAppStore } from "/imports/api/lib/core";
 
 import { Fibu } from "..";
+import { DefaultAppActions } from "../../defaults";
 
 export interface FibuStatus extends IGenericApp {
 
@@ -69,17 +70,7 @@ export const Fibustati = Fibu.createApp<FibuStatus>('fibustati', {
     },
 
     actions: {
-        neu: {
-            isPrimaryAction: true,
-
-            description: 'Neuzugang eines Fibustatus',
-            icon: 'fas fa-plus',
-            
-            visibleBy: [ 'ADMIN' ],
-            executeBy: [ 'ADMIN' ],
-
-            onExecute: { redirect: '/fibu/fibustati/new' }
-        },
+        ...DefaultAppActions.newDocument(['ADMIN'])
     },
 
     methods: {
@@ -101,9 +92,7 @@ export const Fibustati = Fibu.createApp<FibuStatus>('fibustati', {
 });
 
 
-export const ReportFibustatiAll = MebedoWorld.createReport<FibuStatus, never>('fibustati-all', {
-    type: 'table',
-    
+export const ReportFibustatiAll = MebedoWorld.createReport<FibuStatus, never>('fibustati-all', {  
     title: 'Alle Fibustati',
     description: 'Zeigt alle Fibustati.',
 
@@ -123,19 +112,22 @@ export const ReportFibustatiAll = MebedoWorld.createReport<FibuStatus, never>('f
         return $FibuStati.find({}, { sort: { title: 1 } });
     },
 
-    columns: [
-        {
-            title: 'Status',
-            key: 'title',
-            dataIndex: 'title',
+    type: 'table',
+    tableDetails: {
+        columns: [
+            {
+                title: 'Status',
+                key: 'title',
+                dataIndex: 'title',
 
-        },
-        {
-            title: 'Beschreibung',
-            key: 'description',
-            dataIndex: 'description',
-        },
-    ],
+            },
+            {
+                title: 'Beschreibung',
+                key: 'description',
+                dataIndex: 'description',
+            },
+        ],
+    },
 
     actions: [
         {
@@ -176,7 +168,7 @@ export const ReportFibustatiAll = MebedoWorld.createReport<FibuStatus, never>('f
                         title: `Fibustatus löschen?`,
                         content: <div>Das Löschen der Kontiergruppe <b>{row.title}</b> kann nicht rückgängig gemacht werden!</div>,
                         onOk() {
-                            invoke('fibustati.removeDocument', { productId: 'fibu', appId: 'fibustati', docId: row._id }, (err: any, res: IGenericRemoveResult) => {
+                            invoke('fibustati.removeDocument', row._id, (err: any, res: IGenericRemoveResult) => {
                                 if (err) {
                                     console.log(err);
                                     return message.error('Es ist ein unbekannter Fehler aufgetreten.');

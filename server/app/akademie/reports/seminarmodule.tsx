@@ -1,18 +1,11 @@
 import React from 'react';
 import { MebedoWorld } from '/server/app/mebedo-world';
-
-import Tag from 'antd/lib/image';
 import { getAppStore } from '/imports/api/lib/core';
-
-import { TOptionValues } from '/imports/api/types/app-types';
 import { IReportRendererExtras } from '/imports/api/types/world';
 
-import { Seminarmodule } from '../apps/seminarmodule';
+import { Seminarmodul, Seminarmodule } from '../apps/seminarmodule';
 
-export const ReportSeminarmodule = MebedoWorld.createReport<Seminarmodul, Seminarmodul>('Seminarmodule', {
-
-    type: 'table',
-    
+export const ReportSeminarmodule = MebedoWorld.createReport<Seminarmodul, Seminarmodul>('seminarmodule', {    
     title: 'Seminarmodule',
     description: 'Zeigt alle Seminarmodule an.',
 
@@ -21,45 +14,47 @@ export const ReportSeminarmodule = MebedoWorld.createReport<Seminarmodul, Semina
 
     isStatic: false,
 
-    liveDatasource: ({ isServer, publication, currentUser, document }) => {
+    liveDatasource: ({ isServer, publication, currentUser }) => {
         if (isServer && !currentUser) return publication?.ready();
         
-        const Seminarmodule = getAppStore('seminarmodule');
+        const appStore = isServer ? Seminarmodule : getAppStore('seminarmodule');
         
-        return Seminarmodule.find({}, { sort: { title: 1 } });
+        return appStore.find({}, { sort: { title: 1 } });
     },
 
     /*injectables: {
         Adressarten
     },*/
+    type: 'table',
+    tableDetails: {
+        columns: [
+            {
+                title: 'Seminarmodul',
+                dataIndex: 'title',
+                key: 'title',
+                render: (title: any, seminarmodul, extras: IReportRendererExtras) => {                
+                    const { _id } = seminarmodul;
+                    const { isExport } = extras;
 
-    columns: [
-        {
-            title: 'Seminarmodul',
-            dataIndex: 'title',
-            key: 'title',
-            render: (title: any, seminarmodul, extras: IReportRendererExtras) => {                
-                const { _id } = seminarmodul;
-                const { isExport } = extras;
-
-                return (
-                    isExport 
-                        ? title
-                        : <a href={`/akademie/seminarmodule/${_id}`}>{title}</a>
-                );
-            }
-        },
-        {
-            title: 'Beschreibung',
-            dataIndex: 'description',
-            key: 'description'
-        },
-        {
-            title: 'Modul',
-            dataIndex: 'modul',
-            key: 'modul'
-        },
-    ],
+                    return (
+                        isExport 
+                            ? title
+                            : <a href={`/akademie/seminarmodule/${_id}`}>{title}</a>
+                    );
+                }
+            },
+            {
+                title: 'Beschreibung',
+                dataIndex: 'description',
+                key: 'description'
+            },
+            {
+                title: 'Modul',
+                dataIndex: 'modul',
+                key: 'modul'
+            },
+        ],
+    },
 
     actions: [
         {

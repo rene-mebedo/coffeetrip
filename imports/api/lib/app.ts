@@ -25,7 +25,14 @@ import { MethodInvocationFunction } from "./types";
 import { World } from "./world";
 import moment from 'moment'
 
-import { AppData, IActivitiesReplyToProps, IApp, IDefaultAppData, IGenericAppLinkOptionsResult, IGenericDefaultResult, IGenericInsertArguments, IGenericInsertResult, IGenericRemoveArguments, IGenericRemoveResult, IGenericUpdateArguments, IGenericUpdateResult, IGetAppLinkOptionProps, IGetDocumentResult, IGetUsersSharedWithResult, ILockResult, IPostProps, TAppLink, UpdateableAppData } from "/imports/api/types/app-types";
+import { 
+    AppData, IActivitiesReplyToProps, IApp, 
+    IDefaultAppData, IGenericAppLinkOptionsResult, IGenericDefaultResult, IGenericInsertResult, 
+    IGenericRemoveResult, IGenericUpdateResult, IGetAppLinkOptionProps, IGetDocumentResult, 
+    IGetUsersSharedWithResult, ILockResult, InsertableAppData, IPostProps, 
+    TAppLink, UpdateableAppData 
+} from "/imports/api/types/app-types";
+
 import { injectUserData } from "./roles";
 import { Activities } from "./activities";
 import SimpleSchema from "simpl-schema";
@@ -88,16 +95,14 @@ const messageWithMentions = ({currentUser: _foo, msg, refs: __foo1}:any) => {
     return message;
 }
 
-
-
 export class App<T> {
     private world: World
-    private product: Product
+    public product: Product
 
     public appId: string; 
 
     private collection: Mongo.Collection<any>;
-    private app: IApp<T>;
+    public app: IApp<T>;
 
     constructor(world: World, product: Product, appDef: IApp<T>) {
         this.world = world;
@@ -184,7 +189,10 @@ export class App<T> {
                     let result = actionName.replace( /([A-Z])/g, ' $1' );
                     a.title = result.charAt(0).toUpperCase() + result.slice(1);
                 }
-                
+
+                if (a.visible && isFunction(a.visible)) a.visible = a.visible.toString();
+                if (a.onExecute && a.onExecute.runScript && isFunction(a.onExecute.runScript)) a.onExecute.runScript = a.onExecute.runScript.toString();
+
                 try {
                     AppActionSchema.validate(a);
                 } catch (err) {
@@ -884,12 +892,12 @@ export class App<T> {
     private insertDocument():MethodInvocationFunction {
         const self = this;
 
-        return async function(this:{userId:string}, data:IGenericInsertArguments<T>):Promise<IGenericInsertResult> {            
-            const { productId, appId, values } = data;
+        return async function(this:{userId:string}, data:InsertableAppData<T>):Promise<IGenericInsertResult> {            
+            let values = data; //const { productId, appId, values } = data;
 
             try {
-                check(productId, String);
-                check(appId, String);
+                //check(productId, String);
+                //check(appId, String);
                 check(values, Object);
             } catch (err){
                 return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: `Die angegebenen Parameter entsprechen nicht der Signatur für "${self.appId}.insertDocument()"` }
@@ -909,7 +917,7 @@ export class App<T> {
 
             try {
                 // running the async operations
-                result = await self._insert(values, currentUser, { session });
+                result = await self._insert(values as AppData<T>, currentUser, { session });
                 if (result.status != EnumMethodResult.STATUS_OKAY) {
                     await session.abortTransaction();
                 } else {
@@ -947,7 +955,7 @@ export class App<T> {
             }
 
             if (result.status != EnumMethodResult.STATUS_OKAY) {
-                return { status: result.status, statusText: result.statusText }
+                return result; //{ status: result.status, statusText: result.statusText }
             }
 
             // add the defaults to the values object if the specified prop is not set
@@ -968,7 +976,7 @@ export class App<T> {
             let result;
 
             try {
-                result = await this.app.methods.onBeforeInsert(values, { session: options?.session, moment, hasChanged: this.hasChanged(values, null), currentValue: this.currentValue(values, null) });
+                result = await this.app.methods.onBeforeInsert(values as AppData<T>, { session: options?.session, moment, hasChanged: this.hasChanged(values, null), currentValue: this.currentValue(values, null) });
             } catch(err) {
                 return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: err.message }
             }
@@ -1028,12 +1036,13 @@ export class App<T> {
     private updateDocument():MethodInvocationFunction {
         const self = this;
 
-        return async function(this:{userId:string}, data:IGenericUpdateArguments<T>):Promise<IGenericUpdateResult> {            
-            const { productId, appId, docId, values } = data;
-            
+        return async function(this:{userId:string}, docId: string, data:UpdateableAppData<T>):Promise<IGenericUpdateResult> {            
+            //const { productId, appId, docId, values } = data;
+            const values = data;            
+
             try {
-                check(productId, String);
-                check(appId, String);
+                //check(productId, String);
+                //check(appId, String);
                 check(docId, String);
                 check(values, Object);
             } catch (err){
@@ -1078,7 +1087,7 @@ export class App<T> {
      * Update a document for this app
     */
     protected async _update(docId: string, values: UpdateableAppData<T>, currentUser: IWorldUser, options?:any): Promise<IGenericUpdateResult> {
-        const oldValues = <AppData<T>> await this.collection.rawCollection().findOne({
+        let query: any = {
             $and: [
                 { _id: docId },
                 {
@@ -1088,7 +1097,12 @@ export class App<T> {
                     ]
                 }
             ]
-        }, options);
+        };
+        if (options && options.skipPermissions) {
+            query = { _id: docId }
+        }
+
+        const oldValues = <AppData<T>> await this.collection.rawCollection().findOne(query, options);
 
         /*
             prüfen, ob ein Record zurückgeliefert wurde. Falls dem nicht so ist, hat dies
@@ -1103,7 +1117,7 @@ export class App<T> {
 
 
         if (this.app.methods && this.app.methods.onBeforeUpdate) {
-            let result;
+            let result: IGenericUpdateResult;
 
             try {
                 result = await this.app.methods.onBeforeUpdate.apply(null, [docId, values, oldValues, { session: options?.session, moment, hasChanged: this.hasChanged(values, oldValues), currentValue: this.currentValue(values, oldValues) } ]);
@@ -1112,7 +1126,7 @@ export class App<T> {
             }
 
             if (result.status != EnumMethodResult.STATUS_OKAY) {
-                return { status: result.status, statusText: result.statusText }
+                return result; //{ status: result.status, statusText: result.statusText }
             }
         }
 
@@ -1164,7 +1178,7 @@ export class App<T> {
             }
             
             if (result.status != EnumMethodResult.STATUS_OKAY) {
-                return { status: result.status, statusText: result.statusText }
+                return result; //{ status: result.status, statusText: result.statusText }
             }
         }
 
@@ -1177,12 +1191,12 @@ export class App<T> {
     private removeDocument():MethodInvocationFunction {
         const self = this;
 
-        return async function(this:{userId:string}, data:IGenericRemoveArguments):Promise<IGenericRemoveResult> {            
-            const { productId, appId, docId } = data;
+        return async function(this:{userId:string}, docId: string):Promise<IGenericRemoveResult> {            
+            //const { productId, appId, docId } = data;
             
             try {
-                check(productId, String);
-                check(appId, String);
+                //check(productId, String);
+                //check(appId, String);
                 check(docId, String);
             } catch (err){
                 return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: `Die angegebenen Parameter entsprechen nicht der Signatur für "${self.appId}.removeDocument()"` }
@@ -1194,7 +1208,7 @@ export class App<T> {
                 return { status: EnumMethodResult.STATUS_NOT_LOGGED_IN, statusText: 'Sie sind nicht am System angemeldet' }
             }
 
-            let result: IGenericUpdateResult;
+            let result: IGenericRemoveResult;
 
             const { client } = MongoInternals.defaultRemoteCollectionDriver().mongo;
             const session = await client.startSession();
@@ -1260,7 +1274,7 @@ export class App<T> {
             }
 
             if (result.status != EnumMethodResult.STATUS_OKAY) {
-                return { status: result.status, statusText: result.statusText }
+                return result; //{ status: result.status, statusText: result.statusText }
             }
         }      
 
@@ -1293,7 +1307,7 @@ export class App<T> {
                 }, { created: true })
             , { session: options?.session } );
         } catch(err) {
-            return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: 'Fehler beim insert der Daten oder Activity\n' + err.message };
+            return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: 'Fehler beim Löschen der Daten oder protokollieren der Activity\n' + err.message };
         }
 
         if (this.app.methods && this.app.methods.onAfterRemove) {
@@ -1306,7 +1320,7 @@ export class App<T> {
             }
             
             if (result.status != EnumMethodResult.STATUS_OKAY) {
-                return { status: result.status, statusText: result.statusText }
+                return result; //{ status: result.status, statusText: result.statusText }
             }
         }
 
@@ -1328,6 +1342,7 @@ export class App<T> {
      * @returns function to check Property
      */
     private hasChanged(NEW:AppData<T> | UpdateableAppData<T> | null, OLD:AppData<T> | UpdateableAppData<T> | null): (propName: keyof T) => boolean {
+        const self = this;
         return function (propName: keyof T) {
             // wenn NEW und OLD null sind, dann handelt es sich um
             // den getDefaults
@@ -1342,7 +1357,35 @@ export class App<T> {
             if (NEW === null) return false;
 
             // im update muss genau geprüft werden, ob sich der Wert von NEW zu OLD geändert hat
-            return NEW[propName] !== undefined && (NEW[propName] !== (OLD && OLD[propName]));
+            if (NEW[propName] !== undefined) {
+                // Der Wert wurde geändert bzw. "angefasst"
+                // jetzt die verschiedenen Tye prüfen. Ein reiner Objektvergleich ist nicht aussreichend
+                // es müssen immer die Standardtypen verglichen werden
+                if ( self.app.fields[propName].type == EnumFieldTypes.ftAppLink ) {
+                    
+                    const  n = (NEW[propName] || []) as TAppLink,
+                           o = (OLD[propName] || []) as TAppLink;
+                    // für den Applink vergleichen wir zuerst die arraylänge
+                    if (n.length != o.length) return true;
+
+                    let i:number, max:number=n.length;
+                    for (i=0; i < max; i++) {
+                        // es wird nur die ID geprüft, die beschreibenden Felder title, description, link und imageUrl
+                        // haben keine Auswirkung und dienen nur der Darstellung
+                        //if (n[i]._id != o[i]._id) return true;
+                        const nid = n[i]._id;
+                        const fountInOld = o.find( oItem => oItem._id == nid);
+                        // wurde die ID aus dem neuen Array nicht in dem alten gefunden, so 
+                        // hat sich das AppLink-Feld geändert
+                        if (!fountInOld) return true;
+                    }
+                    return false;
+                }
+
+                if ( NEW[propName] !== (OLD && OLD[propName]) ) return true;
+            }
+
+            return false;
         }
     }
 
@@ -1377,10 +1420,10 @@ export class App<T> {
      * @param values values as object to be updated
      * @returns IGenericUpdateResult
      */
-     public async insertOne(values: AppData<T>, options?:any): Promise<IGenericUpdateResult> {
+     public async insertOne(values: InsertableAppData<T>, options?:any): Promise<IGenericInsertResult> {
         const currentUser = this.getCurrentUser();
 
-        return await this._insert(values, currentUser, options);
+        return await this._insert(values as AppData<T>, currentUser, options);
     }
 
     /**
@@ -1403,7 +1446,7 @@ export class App<T> {
      * @param options MONGO options like session
      * @returns IGenericRemoveResult
      */
-     public async removeOne(id: string, options?:any): Promise<IGenericRemoveResult> {
+    public async removeOne(id: string, options?:any): Promise<IGenericRemoveResult> {
         const currentUser = this.getCurrentUser();
 
         return await this._remove(id, currentUser, options);
@@ -1449,17 +1492,23 @@ export class App<T> {
                     ) {
                         hasChanged = true
                     } else {
-                        // old und newdata weise Daten auf, nun auf Feldebene vergleichen
-                        (data[fieldName] as unknown as TAppLink).forEach((d, i) => {
-                            if (!hasChanged){
-                                const oldD = (oldData[fieldName] as unknown as TAppLink)[i];
-                                ['_id', 'title', 'desciption', 'link', 'imageUrl'].forEach( (prop: string) => {
-                                    if ((d as any)[prop] !== (oldD && (oldD as any)[prop])) {
-                                        hasChanged = true
-                                    }
-                                })
-                            }
-                        });
+                        const n = data[fieldName] as unknown as TAppLink;
+                        const o = oldData[fieldName] as unknown as TAppLink;
+                        if (n.length != o.length) {
+                            hasChanged = true
+                        } else {
+                            // old und newdata weise Daten auf, nun auf Feldebene vergleichen
+                            (data[fieldName] as unknown as TAppLink).forEach((d, i) => {
+                                if (!hasChanged){
+                                    const oldD = (oldData[fieldName] as unknown as TAppLink)[i];
+                                    ['_id', 'title', 'desciption', 'link', 'imageUrl'].forEach( (prop: string) => {
+                                        if ((d as any)[prop] !== (oldD && (oldD as any)[prop])) {
+                                            hasChanged = true
+                                        }
+                                    })
+                                }
+                            });
+                        }
                     }
                 }
             } else {

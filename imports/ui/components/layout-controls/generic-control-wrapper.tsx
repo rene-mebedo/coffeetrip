@@ -40,13 +40,13 @@ export type IMethodOnValuesChange = (
 ) => void;
 
 export interface IGenericControlProps {
-    elem: TAppLayoutElement<any>
-    app: IApp<any>
+    elem: TAppLayoutElement<any> | null
+    app: IApp<any> | null
     mode: EnumDocumentModes
     defaults: IGenericDocument
     document: IGenericDocument
     children?: JSX.Element
-    onValuesChange: IMethodOnValuesChange
+    onValuesChange: IMethodOnValuesChange | null
     currentUser: IWorldUser
     /**
      * optionaler Parameter, der Steuert ob ein <Form.Item> im Falle von True
@@ -128,55 +128,61 @@ export const GenericControlWrapper = (props: IGenericControlProps) : JSX.Element
         });
     }
     
-    if (autoValue) {
-        const recomputeValue = eval(autoValue as unknown as string);
+    // das Report-Control liefert für onValuesChange = null
+    // diese Eigenschaft wird nur vom Form geliefert
+    // und dient der Eingabe-Elemente und nicht den "reinen"
+    // Anzeige-Elementen
+    if (onValuesChange && app) {
+        if (autoValue) {
+            const recomputeValue = eval(autoValue as unknown as string);
 
-        onValuesChange( (changedValues, allValues, setValue) => {
-            const newValue = recomputeValue({changedValues, allValues, moment, injectables: app.injectables});
-            if (allValues[field as string] !== newValue) {
-                setValue(field as string, newValue);
-            }
-        });
-    }
+            onValuesChange( (changedValues, allValues, setValue) => {
+                const newValue = recomputeValue({changedValues, allValues, moment, injectables: app.injectables});
+                if (allValues[field as string] !== newValue) {
+                    setValue(field as string, newValue);
+                }
+            });
+        }
 
-    if (enabled && mode !== EnumDocumentModes.SHOW) {
-        // immer dann aufrufen, wenn sich Werte geändert haben
-        onValuesChange( (changedValues, allValues) => {            
-            const d = !isEnabled({changedValues, allValues, mode}, { moment });
-            if (d != disabled) setDisabled(d);
-        });
-    }
+        if (enabled && mode !== EnumDocumentModes.SHOW) {
+            // immer dann aufrufen, wenn sich Werte geändert haben
+            onValuesChange( (changedValues, allValues) => {            
+                const d = !isEnabled({changedValues, allValues, mode}, { moment });
+                if (d != disabled) setDisabled(d);
+            });
+        }
 
-    if (visible) {
-        // immer dann aufrufen, wenn sich Werte geändert haben
-        onValuesChange( (changedValues, allValues) => {    
-            const h = !isVisible({fieldName: field, changedValues, allValues, mode}, {moment});
-            if (h != hide) {
-                //console.log('SET on onValuesChange', field, h, changedValues, allValues)
-                setHide(h);
-            }
-        });
-    }
+        if (visible) {
+            // immer dann aufrufen, wenn sich Werte geändert haben
+            onValuesChange( (changedValues, allValues) => {    
+                const h = !isVisible({fieldName: field, changedValues, allValues, mode}, {moment});
+                if (h != hide) {
+                    //console.log('SET on onValuesChange', field, h, changedValues, allValues)
+                    setHide(h);
+                }
+            });
+        }
 
-    if (onChange) {
-        onValuesChange( (changedValues, allValues, setValue) => {            
-            const tools = {
-                moment,
-                confirm,
-                message,
-                notification,
-                invoke: (name: string, ...args:any[]) => {
-                    let callback = (_error: Meteor.Error | any, _result?: any) => {};
-                    if (args && isFunction(args[args.length-1])) {
-                        callback = args.pop()
-                    }
-                    Meteor.apply('__app.' + name, args, {}, callback);
-                },
-                setValue
-            };
-            customOnChange({fieldName: field, changedValues, allValues, mode, tools});
-        });
-        
+        if (onChange) {
+            onValuesChange( (changedValues, allValues, setValue) => {            
+                const tools = {
+                    moment,
+                    confirm,
+                    message,
+                    notification,
+                    invoke: (name: string, ...args:any[]) => {
+                        let callback = (_error: Meteor.Error | any, _result?: any) => {};
+                        if (args && isFunction(args[args.length-1])) {
+                            callback = args.pop()
+                        }
+                        Meteor.apply('__app.' + name, args, {}, callback);
+                    },
+                    setValue
+                };
+                customOnChange({fieldName: field, changedValues, allValues, mode, tools});
+            });
+            
+        }
     }
 
     let cln = 'mbac-layout-element' + (className ? ' ' + className : '');
@@ -202,7 +208,7 @@ export const GenericControlWrapper = (props: IGenericControlProps) : JSX.Element
     return (
         <Form.Item 
             className={cln}
-            label={getLabel(elem, app.fields)}
+            label={elem && app ? getLabel(elem, app.fields) : ''}
             name={field as string}
             rules={hide || disabled ? undefined : rules}
             style={hide ? {display: 'none'} : undefined}

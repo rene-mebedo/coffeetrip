@@ -4,17 +4,17 @@ import { FieldNamesAndMessages, isOneOf } from "/imports/api/lib/helpers";
 import { defaultSecurityLevel } from "../../security";
 import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
 
-import { AppData, IAppLink, IGenericApp, IGetDocumentResult, TAppLink } from "/imports/api/types/app-types";
+import { AppData, IAppLink, IGenericApp, IGenericUpdateResult, IGetDocumentResult, TAppLink } from "/imports/api/types/app-types";
 import { Consulting } from "..";
 import { StatusField } from "../../akademie/apps/seminare";
 import { Adresse, Adressen } from "../../allgemein/apps/adressen";
 import { Projektstati } from "./projektstati";
 import { TeilprojekteByProjekt } from "../reports/teilprojekte-by-projekt";
 import { Teilprojekte } from "./teilprojekte";
-import { ProjekteByUser } from "../reports/projekte-by-user";
 import { calcMinutes, Einheiten, EinheitenEnum, TEinheit } from "./einheiten";
 import { Rechnungsempfaenger, RechnungsempfaengerEnum } from "./rechnungsempfaenger";
 
+import { Colors } from '/imports/api/colors'
 
 /**
  * Steuerung wann die abweichende Rechnungsanschrift
@@ -248,7 +248,7 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
     },
     
     sharedWith: [],
-    sharedWithRoles: ['EMPLOYEE', 'ADMIN'],
+    sharedWithRoles: ['EXTERN', 'EMPLOYEE', 'ADMIN'],
 
     fields: {
         title: {
@@ -669,12 +669,128 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
                 { controlType: EnumControltypes.ctReport, reportId: TeilprojekteByProjekt.reportId }
             ]
         },
+
+        extern: {
+            title: 'Layout für Kunden',
+            description: 'Dies ist ein Layout für unsere Kunden',
+
+            visibleBy: ['EXTERN'],
+            
+            elements: [
+                { controlType: EnumControltypes.ctColumns, columns: [
+                    { columnDetails: { xs:24, sm:24, md:24, lg:18, xl:16, xxl:16 }, elements: [
+                        { field: 'title', controlType: EnumControltypes.ctStringInput },
+                        { field: 'description', title: 'Beschreibung', controlType: EnumControltypes.ctStringInput },
+                        { field: 'kunde', controlType: EnumControltypes.ctAppLink, onChange: ({changedValues, allValues, tools}) => {
+                            const { confirm, notification, message, invoke, setValue } = tools;
+                            
+                            // die Defaultgenerierung machen wir nur beim Neuzugang
+                            //if (mode != EnumDocumentModes.NEW) return;
+                            
+                            if ( // nur wenn ein Kunde ausgewählt ODER abgewählt wurde
+                                changedValues && changedValues.kunde) {
+                                if (changedValues.kunde && changedValues.kunde.length == 0) {
+                                    confirm({
+                                        title: 'Kunde entfernt',
+                                        content: <div>
+                                            <p>Die Preisliste steht in direkter Abhängigkeit zum Kunden. <strong>Möchten Sie diese ebenfalls für das Projet entfernen?</strong></p>
+                                            <p>So kann bei erneuter Kundenauswahl die Preisliste direkt wieder vom neu ausgewählten Kunden übernommen werden.</p>
+                                        </div>,
+                                        onOk: () => setValue('preisliste', undefined)
+                                    });
+                                }
+                            }
+
+                            if ( // nur wenn ein Kunde ausgewählt wurde
+                                changedValues.kunde && changedValues.kunde.length > 0 &&
+                                // und noch keine Preisliste durch den Anwender eingetragen ist
+                                ((allValues && allValues.preisliste === undefined) || (allValues && allValues.preisliste && allValues.preisliste.length == 0))
+                            ) {
+                                const setPreisliste = () => {
+                                    invoke('adressen.getDocument', changedValues.kunde[0]._id, (err: Meteor.Error, result: IGetDocumentResult<Adresse>) => {
+                                        if (err) {
+                                            message.error('Es ist ein unbekannter Fehler aufgetreten.' + err.message);
+                                            console.log(err);
+                                        } else {
+                                            if (result.status != EnumMethodResult.STATUS_OKAY) {
+                                                message.warning(result.statusText);
+                                            }
+                                            const pl = result.document?.preisliste;
+                                            if (!pl) return;
+
+                                            setValue('preisliste', pl);
+
+                                            notification.info({
+                                                message: `Preisliste übernommen`,
+                                                description: <span>Die Preisliste <strong>{pl[0].title}</strong> wurde aus Ihrer Kundeneingabe übernommen.<br/>Um diese zu Ändern prüfen Sie bitte die kaufmännischen Angaben.</span>
+                                            });
+                                        }
+                                    });
+                                };
+
+                                /*confirm({
+                                    title: 'Rückfrage',
+                                    content: 'Möchten Sie die Preisliste des Kunden übernehmen?',
+                                    onOk: setPreisliste
+                                });*/
+                                setPreisliste();
+                            }
+                        }},
+                        { field: 'zeitraum', controlType: EnumControltypes.ctDatespanInput },
+                        { field: 'status', controlType: EnumControltypes.ctOptionInput, values: Projektstati },
+                    ]},
+                    { columnDetails: { xs:24, sm:24, md:24, lg:6, xl:8, xxl:8 }, elements: [
+                        { controlType: EnumControltypes.ctColumns, columns: [
+                            { columnDetails: { xs:24, sm:12, md:12, lg: 12, xl:12, xxl:12 }, elements: [
+                                { field: 'erloesePlan', title: 'Projekterlöse (Plan)', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-dollar-sign',
+                                    render: renderSimpleWidgetCurrency
+                                },
+                            ]},
+                            { columnDetails: { xs:24, sm:12, md:12, lg: 12, xl:12, xxl:12 }, elements: [
+                                { field: 'erloeseIst', title: 'Ist', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-file-invoice-dollar',
+                                render: renderSimpleWidgetCurrency
+                            },
+                            ]},
+                            { columnDetails: { xs:24, sm:12, md:12, lg: 12, xl:12, xxl:12 }, elements: [
+                                { field: 'erloeseForecast', title: 'Forecast', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-funnel-dollar',
+                                render: renderSimpleWidgetCurrency
+                            },
+                            ]},
+                            { columnDetails: { xs:24, sm:12, md:12, lg: 12, xl:12, xxl:12 }, elements: [
+                                { field: 'erloeseRest', title: 'Rest', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-search-dollar',
+                                render: renderSimpleWidgetCurrency
+                            },
+                            ]}
+                        ]},
+                        { controlType: EnumControltypes.ctColumns, columns: [
+                            { columnDetails: { xs:24, sm:12, md:12, lg: 12 }, elements: [
+                                { field: 'aufwandPlanMinuten', title: 'Projektaufwand', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-list', 
+                                    render: renderSimpleWidgetAufwandMitEinheit
+                                },
+                            ]},
+                            { columnDetails: { xs:24, sm:12, md:12, lg: 12 }, elements: [
+                                { field: 'aufwandIstMinuten', title: 'Ist', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-tasks',
+                                    render: renderSimpleWidgetAufwandMitEinheit
+                                },
+                            ]},
+                            { columnDetails: { push:12, xs:24, sm:12, md:12  }, elements: [
+                                { field: 'aufwandRestMinuten', title: 'Rest', controlType: EnumControltypes.ctWidgetSimple, icon:'fas fa-list-ul', 
+                                    render: renderSimpleWidgetAufwandMitEinheit
+                                },
+                            ]}
+                        ]}
+                    ]}
+                ]},
+            ]
+        }
     },
 
     actions: {
         neu: {
             isPrimaryAction: true,
+            environment: ['Dashboard'],
 
+            title: 'Neu',
             description: 'Neuzugang eines Projektes',
             icon: 'fas fa-plus',
             
@@ -683,6 +799,67 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
 
             onExecute: { redirect: '/consulting/projekte/new' }
         },
+
+        edit: {
+            isPrimaryAction: true,
+            environment: ['Document'],
+
+            title: 'Bearbeiten',
+            description: 'Bearbeiten des aktuellen Projekts',
+            icon: 'fas fa-edit',
+            
+            visibleBy: [ 'ADMIN', 'EMPLOYEE' ],
+            executeBy: [ 'ADMIN', 'EMPLOYEE' ],
+
+            onExecute: {
+                force: 'edit'
+            }
+        },
+
+        auftragBestaetigen: {
+            isPrimaryAction: false,
+            environment: ['Document'],
+
+            title: 'Auftrag bestätigen',
+            description: 'Bearbeiten des aktuellen Projekts',
+            icon: 'fas fa-check',
+
+            style: { ...Colors.green },
+            
+            visibleBy: [ 'EXTERN' ],
+            executeBy: [ 'ADMIN', 'EXTERN' ],
+
+            visible: ({ document }) => document && document.status == 'geplant',
+
+            onExecute: {
+                runScript: (document, tools) => {
+                    const { confirm, notification, message, invoke } = tools;
+
+                    confirm({
+                        title: 'Auftrag bestätigen!',
+                        content: <div>
+                            <p>Hiermit bestellen Sie verbindlich die angebotenen Projektleistungen wie beschreiben.</p>
+                            <p>Mit dem Bestätigen des Auftrags stimmen Sie der <a href="https://mebedo-ac.de/consulting/agb" target="_blank">AGB's</a> der MEBEDO Consulting GmbH zu.</p>
+                        </div>,
+                        onOk: () => {
+                            invoke('projekte.updateDocument', document._id, { status: 'bestaetigt' }, (err: Meteor.Error, result: IGenericUpdateResult)=>{
+                                if (err) message.error('Es ist ein unbekannter Fehler aufgetreten');
+                                if (result.status != EnumMethodResult.STATUS_OKAY) {
+                                    return notification.error({
+                                        message: 'Leider ist ein Fehler aufgetreten!',
+                                        description: result.statusText
+                                    });
+                                }
+                                notification.success({
+                                    message: 'Vielen Dank für Ihren Auftrag!',
+                                    description: 'Unser Herr Euler wird sich kurzfristig mit Ihnen in Verbindung setzen um die weitere Vorgehensweise abzustimmen.'                                        
+                                });
+                            })
+                        }
+                    })
+                }
+            }
+        }
     },
 
     methods: {
@@ -746,7 +923,7 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
             }
 
             if (isOneOf(NEW.rechnungsempfaenger, ['kunde', 'distributor'])) {
-                // leeren der Felder für die abweichende Rechnungsaschrift, die ggf. im Dialog zuvor erfasst wurden
+                // leeren der Felder für die abweichende Rechnungsanschrift, die ggf. im Dialog zuvor erfasst wurden
                 // und nachträglich wurde die Steuerung umgestellt
                 NEW.rechnungFirma1 = '';
                 NEW.rechnungFirma2 = '';
@@ -818,7 +995,7 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
                 tps.forEach( tp => {
                     Teilprojekte.updateOne(tp._id, { 
                         stundenProTag: NEW.stundenProTag,                        
-                    });
+                    }, { session, skipPermissions: true });
                 });
             }
 
@@ -830,7 +1007,7 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
                     Teilprojekte.updateOne(tp._id, { 
                         anzeigeeinheit: NEW.anzeigeeinheit,
                         anzeigeeinheitDetails: NEW.anzeigeeinheitDetails
-                    });
+                    }, { session, skipPermissions: true });
                 });
             }
 
@@ -846,7 +1023,7 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
 
                     const result = await Teilprojekte.updateOne(tp._id, {
                         status: NEW.status
-                    }, { session });
+                    }, { session, skipPermissions: true });
 
                     if (result.status != EnumMethodResult.STATUS_OKAY) {
                         return result;
@@ -865,11 +1042,12 @@ export const Projekte = Consulting.createApp<Projekt>('projekte', {
         return 'default';
     },
     dashboards: {
-        default: { 
+        default: {
             rows: [
                 {
                     elements: [
-                        { _id:'projekte-by-user', width: { xs: 24, sm:24, md:12 },  type: 'report', details: { type: 'table', reportId: ProjekteByUser.reportId, document: { status: ['geplant', 'bestätigt']} } },
+                        //{ _id:'projekte-by-user', width: { xs: 24, sm:24, md:12 },  type: 'report', details: { type: 'table', reportId: ProjekteByUser.reportId, document: { status: ['geplant', 'bestätigt']} } },
+                        { _id:'projekte-by-user-card', width: { xs: 24 },  type: 'report', details: { type: 'card', reportId: 'projekte-by-user-card' } },
                     ]
                 }
             ]

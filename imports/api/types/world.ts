@@ -6,6 +6,9 @@ import { ChartOptions, ChartData } from 'chart.js';
 
 import { ModalFunc } from 'antd/lib/modal/confirm';
 import { MessageApi } from 'antd/lib/message';
+import { NotificationApi } from 'antd/lib/notification';
+import { ColProps } from 'antd/lib/grid';
+import { TypographyProps } from 'antd/lib/typography';
 //import { ColumnsType } from 'antd/lib/table';
 
 export interface IUserShort {
@@ -98,15 +101,81 @@ export interface IReportColumns<T> {
     children?: Array<IReportColumns<T>>
 }
 
-export interface IReport<T, Caller> {
+export interface IHtmlElements {
+    Space: any
+    Tag: any
+    Statistic: any
+    Progress: any
+    Divider: any
+    Typography: TypographyProps
+}
+
+export interface IReport<ParentOrCaller> {
+    _id?: string
+
+    title: string
+    description: string
+    
+    //type: 'table' | 'chart' | 'widget' | 'card'
+    
+    icon?:string
+    isStatic: boolean
+    staticDatasource?: TReportDatasource<ParentOrCaller>
+    liveDatasource?: TReportDatasource<ParentOrCaller>
+    injectables?: TInjectables
+    actions?: Array<IReportAction>
+}
+
+export type TReportCardRendererFn<T> = (document: AppData<T>, htmlElements: IHtmlElements) => string | JSX.Element;
+
+export interface IReportCard<T, Parent> extends IReport<Parent> {
+    type: 'card',
+
+    cardDetails: {
+        width: ColProps,
+
+        title: TReportCardRendererFn<T>
+        description?: TReportCardRendererFn<T>
+        cover?: TReportCardRendererFn<T>
+        avatar?: TReportCardRendererFn<T>
+    }
+}
+export interface IReportTable<T, Parent> extends IReport<Parent> {
+    type: 'table',
+
+    tableDetails: {
+        /**
+         * Hides the title section of an table typed report
+         */
+        noHeader?: boolean
+        /**
+         * Definition of columns to be displayed for table-report
+         */
+        columns?: Array<IReportColumns<T>> // im original antd = ColumnsType<any>
+        /**
+         * ID of a given Report to show as nested report for
+         * each data column
+         */
+        nestedReportId?: string
+    }
+}
+export interface IReportChart<_T, Parent> extends IReport<Parent> {
+    type: 'chart',
+
+    chartDetails: {
+        chartType?: 'bar' | 'line' | 'pie'
+    }
+}
+export interface IReportWidget<_T, Parent> extends IReport<Parent> {
+    type: 'widget',
+}
+
+/*export interface IReport1<T, Caller> {
     _id?: string
     title: string
     description: string
-    /**
-     * Hides the title section of an table typed report
-     */
     noHeader?: boolean
-    type: 'table' | 'chart' | 'widget'
+    type: 'table' | 'chart' | 'widget' | 'card'
     chartType?: 'bar' | 'line' | 'pie'
     icon?:string
     columns?: Array<IReportColumns<T>> // im original antd = ColumnsType<any>
@@ -115,12 +184,10 @@ export interface IReport<T, Caller> {
     liveDatasource?: TReportDatasource<Caller>
     injectables?: TInjectables
     actions?: Array<IReportAction>
-    /**
-     * ID of a given Report to show as nested report for
-     * each data column
-     */
     nestedReportId?: string
-}
+}*/
+
+export type TReport<T, Parent> = IReportCard<T, Parent> | IReportTable<T, Parent> | IReportChart<T, Parent> | IReportWidget<T, Parent>;
 
 export interface IDisableReportActionProps {
     mode: EnumDocumentModes
@@ -181,7 +248,8 @@ export interface IRunScriptData {
 
 export interface IRunScriptTools {
     confirm: ModalFunc,
-    message: MessageApi
+    message: MessageApi,
+    notification: NotificationApi
     /**
      * Invokes an app-method on the Server
      */
@@ -197,11 +265,17 @@ export interface IReportActionExecution {
      * Export in CSV, wobei filename den Dateiname als Vorschlag angibt
      * Der Export erfolgt client-seitig
      */
-     exportToCSV?: {    
+    exportToCSV?: {
         filename: string
     }
     /**
      * Funktion, die als methode für Server und client registriert wird
      */
     runScript?: string | ((data: IRunScriptData, tools: IRunScriptTools) => void);
+    /**
+     * Data that will be accessed via "this conext" in the runScript function
+     */
+    context?: {
+        [key: string]: any
+    }
 }

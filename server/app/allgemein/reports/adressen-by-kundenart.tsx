@@ -7,18 +7,13 @@ import { getAppStore } from '/imports/api/lib/core';
 import { TOptionValues } from '/imports/api/types/app-types';
 import { IReportRendererExtras } from '/imports/api/types/world';
 
-import { Adresse } from '../apps/adressen';
+import { Adresse, Adressen } from '../apps/adressen';
 import { Adressarten, AdressartenEnum } from '../apps/adressarten';
+import { DefaultReportActions } from '../../defaults';
 
 export const ReportAdressenByKundenart = MebedoWorld.createReport<Adresse, Adresse>('adressen-by-kundenart', {
-
-    type: 'table',
-    
     title: 'Adressen gemäß Adressart',
     description: 'Zeigt alle Adressen der angegebenen Adressart.',
-
-    /*sharedWith: [],
-    sharedWithRoles: ['EVERYBODY'],*/
 
     isStatic: false,
 
@@ -34,96 +29,50 @@ export const ReportAdressenByKundenart = MebedoWorld.createReport<Adresse, Adres
         Adressarten
     },
 
-    columns: [
-        {
-            title: 'Adresse',
-            dataIndex: 'title',
-            key: 'title',
-            render: (title: any, adresse, extras: IReportRendererExtras) => {                
-                const { _id } = adresse;
-                const { isExport } = extras;
+    type: 'table',
+    tableDetails: {
+        columns: [
+            {
+                title: 'Adresse',
+                dataIndex: 'title',
+                key: 'title',
+                render: (title: any, adresse, extras: IReportRendererExtras) => {                
+                    const { _id } = adresse;
+                    const { isExport } = extras;
 
-                return (
-                    isExport 
-                        ? title
-                        : <a href={`/allgemein/adressen/${_id}`}>{title}</a>
-                );
-            }
-        },
-        {
-            title: 'Adressart',
-            dataIndex: 'adressart',
-            key: 'adressart',
-            render: (adressart: string, _adresse, { injectables, isExport }: IReportRendererExtras ) => {
-                const { Adressarten }: { Adressarten?: TOptionValues<AdressartenEnum> } = injectables;
-                const art = Adressarten && Adressarten.find( ({_id}:{_id:any}) => _id == adressart );
-                
-                if (!art) {
-                    return isExport ? '!!' + adressart : <Tag>{'!!' + adressart}</Tag>
+                    return (
+                        isExport 
+                            ? title
+                            : <a href={`/allgemein/adressen/${_id}`}>{title}</a>
+                    );
                 }
-                return (
-                    isExport
-                        ? art.title
-                        : <Tag style={ { color: art.color as string, backgroundColor: art.backgroundColor as string, borderColor: art.color as string}}>
-                            {art.title}
-                        </Tag>
-                );
             },
-        },
-    ],
+            {
+                title: 'Adressart',
+                dataIndex: 'adressart',
+                key: 'adressart',
+                render: (adressart: string, _adresse, { injectables, isExport }: IReportRendererExtras ) => {
+                    const { Adressarten }: { Adressarten?: TOptionValues<AdressartenEnum> } = injectables;
+                    const art = Adressarten && Adressarten.find( ({_id}:{_id:any}) => _id == adressart );
+                    
+                    if (!art) {
+                        return isExport ? '!!' + adressart : <Tag>{'!!' + adressart}</Tag>
+                    }
+                    return (
+                        isExport
+                            ? art.title
+                            : <Tag style={ { color: art.color as string, backgroundColor: art.backgroundColor as string, borderColor: art.color as string}}>
+                                {art.title}
+                            </Tag>
+                    );
+                },
+            },
+        ],
+    },
 
     actions: [
-        {
-            title: 'Neu',
-            inGeneral: true,
-            type: 'primary',
-
-            description: 'Neuzugang einer Adresse',
-            icon: 'fas fa-plus',
-            iconOnly: false,
-
-            visibleAt: ['ReportPage'],
-            
-            visibleBy: [ 'ADMIN', 'EMPLOYEE' ],
-            executeBy: [ 'ADMIN', 'EMPLOYEE' ],
-
-            onExecute: { 
-                redirect: '/allgemein/adressen/new'
-            }
-        },
-        {
-            title: 'Bearbeiten',
-            inGeneral: false,
-            type: 'primary',
-
-            description: 'Bearbeiten eines Seminarteilnehmers',
-            icon: 'far fa-edit',
-            iconOnly: true,
-            
-            visibleAt: ['ReportPage', 'Dashboard'],
-
-            visibleBy: [ 'ADMIN', 'EMPLOYEE' ],
-            executeBy: [ 'ADMIN', 'EMPLOYEE' ],
-
-            onExecute: { 
-                redirect: '/akademie/seminarteilnehmer/{{rowdoc._id}}'
-            }
-        },
-        {
-            title: 'Löschen',
-            type: 'secondary',
-            description: 'Löschen eines Seminarteilnehmers',
-            icon: 'fas fa-trash',
-            iconOnly: true,
-
-            visibleAt: ['ReportPage', 'Dashboard'],
-
-            visibleBy: [ 'ADMIN', 'EMPLOYEE' ],
-            executeBy: [ 'ADMIN', 'EMPLOYEE' ],
-
-            onExecute: { 
-                // executes meteor method
-            }
-        },
+        DefaultReportActions.newDocument(['ADMIN', 'EMPLOYEE'], Adressen),
+        DefaultReportActions.editDocument(['ADMIN', 'EMPLOYEE'], Adressen),
+        DefaultReportActions.removeDocument(['ADMIN', 'EMPLOYEE'], Adressen),
     ]
 });

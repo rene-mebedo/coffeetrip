@@ -12,6 +12,7 @@ import { getAppStore } from "/imports/api/lib/core";
 import Tag from 'antd/lib/tag';
 import { JaNeinEnum, JaNeinOptionen } from "../../allgemein/apps/ja-nein-optionen";
 import { Einheiten, EinheitenEnum } from "../../consulting/apps/einheiten";
+import { DefaultAppActions } from "../../defaults";
 
 export interface Artikel extends IGenericApp {
     /**
@@ -106,7 +107,7 @@ export const Artikels = Konfiguration.createApp<Artikel>('artikel', {
             appLink: {
                 app: 'kontiergruppen',
                 hasDescription: true,
-                hasImage:false,
+                hasImage: false,
                 linkable: true
             },
             rules: [
@@ -137,17 +138,9 @@ export const Artikels = Konfiguration.createApp<Artikel>('artikel', {
     },
 
     actions: {
-        neu: {
-            isPrimaryAction: true,
-
-            description: 'Neuzugang eines Artikels',
-            icon: 'fas fa-plus',
-            
-            visibleBy: [ 'ADMIN' ],
-            executeBy: [ 'ADMIN' ],
-
-            onExecute: { redirect: '/konfiguration/artikel/new' }
-        },
+        ...DefaultAppActions.newDocument(['ADMIN']),
+        ...DefaultAppActions.editDocument(['ADMIN']),
+        ...DefaultAppActions.removeDocument(['ADMIN'])
     },
 
     methods: {
@@ -169,14 +162,9 @@ export const Artikels = Konfiguration.createApp<Artikel>('artikel', {
 });
 
 
-export const ReportArtikelAll = MebedoWorld.createReport<Artikel, never>('artikel-all', {
-    type: 'table',
-    
+export const ReportArtikelAll = MebedoWorld.createReport<Artikel, never>('artikel-all', {    
     title: 'Alle Artikel',
     description: 'Zeigt alle Artikel.',
-
-    /*sharedWith: [],
-    sharedWithRoles: ['EVERYBODY'],*/
 
     isStatic: false,
 
@@ -191,38 +179,40 @@ export const ReportArtikelAll = MebedoWorld.createReport<Artikel, never>('artike
         return Artikel.find({}, { sort: { title: 1 } });
     },
 
-    columns: [
-        {
-            title: 'Artikel',
-            key: 'title',
-            dataIndex: 'title',
+    type: 'table',
+    tableDetails: {
+        columns: [
+            {
+                title: 'Artikel',
+                key: 'title',
+                dataIndex: 'title',
 
-        },
-        {
-            title: 'Kurzbeschreibung',
-            key: 'description',
-            dataIndex: 'description',
-        },
-        {
-            title: 'Status',
-            key: 'active',
-            dataIndex: 'active',
-            align: 'center',
-            render: (active: string, _artikel: AppData<Artikel>, { injectables }) => {
-                const { JaNeinOptionen }: { JaNeinOptionen: TOptionValues<JaNeinEnum> } = injectables as any;
-                
-                const a = JaNeinOptionen.find( jn => jn._id === active );
-                if (!a) return <Tag color='grey'>{`!!${active}!!`}</Tag>
-                
-                return (
-                    <div>
-                        <Tag style={{color: a.color as string, backgroundColor: a.backgroundColor as string}}>{ a._id == 'ja' ? 'Aktiv': 'Inaktiv' }</Tag>
-                    </div>
-                )
-            }
-        },
-
-    ],
+            },
+            {
+                title: 'Kurzbeschreibung',
+                key: 'description',
+                dataIndex: 'description',
+            },
+            {
+                title: 'Status',
+                key: 'active',
+                dataIndex: 'active',
+                align: 'center',
+                render: (active: string, _artikel: AppData<Artikel>, { injectables }) => {
+                    const { JaNeinOptionen }: { JaNeinOptionen: TOptionValues<JaNeinEnum> } = injectables as any;
+                    
+                    const a = JaNeinOptionen.find( jn => jn._id === active );
+                    if (!a) return <Tag color='grey'>{`!!${active}!!`}</Tag>
+                    
+                    return (
+                        <div>
+                            <Tag style={{color: a.color as string, backgroundColor: a.backgroundColor as string}}>{ a._id == 'ja' ? 'Aktiv': 'Inaktiv' }</Tag>
+                        </div>
+                    )
+                }
+            },
+        ],
+    },
 
     actions: [
         {
@@ -264,7 +254,7 @@ export const ReportArtikelAll = MebedoWorld.createReport<Artikel, never>('artike
                         //icon: <ExclamationCircleOutlined />,
                         content: <div>Das Löschen des Artikels <b>{row.title}</b> kann nicht rückgängig gemacht werden!</div>,
                         onOk() {
-                            invoke('artikel.removeDocument', { productId: 'konfiguration', appId: 'artikel', docId: row._id }, (err: any, res: IGenericRemoveResult) => {
+                            invoke('artikel.removeDocument', row._id, (err: any, res: IGenericRemoveResult) => {
                                 if (err) {
                                     console.log(err);
                                     return message.error('Es ist ein unbekannter Fehler aufgetreten.');

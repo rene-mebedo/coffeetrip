@@ -7,19 +7,10 @@ import { IGenericApp } from "/imports/api/types/app-types";
 
 import { SeminarEinheiten } from "./seminareinheiten";
 
-import { ReportSeminarmodule } from "../reports/seminarmodule";
-
 // Auslagern...
-import { Colors } from '/imports/api/colors'
 import { TOptionValues } from '/imports/api/types/app-types';
-export enum JaNeinEnum {
-ja = 'ja',
-nein = 'nein'
-}
-export const JaNeinOptionen: TOptionValues<JaNeinEnum> = [
-    { _id: JaNeinEnum.ja, title:'Ja', ...Colors.green, },
-    { _id: JaNeinEnum.nein, title:'Nein', ...Colors.red },
-];
+import { JaNeinEnum, JaNeinOptionen } from "../../allgemein/apps/ja-nein-optionen";
+import { DefaultAppActions } from "../../defaults";
 
 export enum TageEnum {
     one = '1',
@@ -348,7 +339,7 @@ export const Seminarmodule = Akademie.createApp<Seminarmodul>({
                 { field: 'aktiv', controlType: EnumControltypes.ctOptionInput, values: JaNeinOptionen },
                 { controlType: EnumControltypes.ctDivider },
                 //{ field: 'anzahlTage', controlType: EnumControltypes.ctNumberInput }, SeminarAnzahlTage
-                { field: 'anzahlTage', controlType: EnumControltypes.ctOptionInput, values: SeminarAnzahlTage }, 
+                { field: 'anzahlTage', controlType: EnumControltypes.ctSlider, sliderDetails: { min: 1, max: 5, tooltipVisible: true } }, 
                 { field: 'Tag1VonBis', title:'Tag 1: Durchführung von-bis', controlType: EnumControltypes.ctTimespanInput, 
                     visible: (props:any) => {
                         if ( !props || !props.allValues )
@@ -427,17 +418,7 @@ export const Seminarmodule = Akademie.createApp<Seminarmodul>({
     },
 
     actions: {
-        neu: {
-            isPrimaryAction: true,
-
-            description: 'Neuzugang eines Seminars',
-            icon: 'fas fa-plus',
-            
-            visibleBy: [ 'ADMIN', 'EMPLOYEE' ],
-            executeBy: [ 'ADMIN', 'EMPLOYEE' ],
-
-            onExecute: { redirect: '/akademie/seminarmodule/new' }
-        },
+        ...DefaultAppActions.newDocument(['ADMIN'])
     },
 
     methods: {
@@ -449,7 +430,7 @@ export const Seminarmodule = Akademie.createApp<Seminarmodul>({
             return {
                 status: EnumMethodResult.STATUS_OKAY,
                 defaults: {
-                    aktiv: JaNeinEnum,
+                    aktiv: JaNeinEnum.ja,
                     anzahlTage: 1,
                     Tag1VonBis: [
                         new Date( 2022 , 0 , 1 , 9 , 0 , 0 ),
@@ -487,7 +468,7 @@ export const Seminarmodule = Akademie.createApp<Seminarmodul>({
             rows: [
                 {
                     elements: [
-                        { _id:'Seminarmodule', width: { xs: 24, sm:24, md:12 },  type: 'report', details: { type: 'table', reportId: ReportSeminarmodule.reportId } },
+                        { _id:'Seminarmodule', width: { xs: 24, sm:24, md:12 },  type: 'report', details: { type: 'table', reportId: 'seminarmodule' } },
                     ]
                 },
             ]

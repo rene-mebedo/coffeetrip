@@ -9,6 +9,7 @@ import { getAppStore } from "/imports/api/lib/core";
 
 import { JaNeinEnum, JaNeinOptionen } from "../../allgemein/apps/ja-nein-optionen";
 import { Konfiguration } from "..";
+import { DefaultAppActions } from "../../defaults";
 
 
 export interface Laendergruppe extends IGenericApp {
@@ -74,7 +75,7 @@ export const Laendergruppen = Konfiguration.createApp<Laendergruppe>('laendergru
             type: EnumFieldTypes.ftAppLink, 
             appLink: {
                 app: 'laender',
-                hasDescription: false,
+                hasDescription: true,
                 hasImage: true,
                 linkable: true
             },
@@ -96,23 +97,13 @@ export const Laendergruppen = Konfiguration.createApp<Laendergruppe>('laendergru
                 { field: 'description', title: 'Beschreibung', controlType: EnumControltypes.ctStringInput },
                 
                 { field: 'imageUrl', controlType: EnumControltypes.ctStringInput },
-                { field: 'laender', controlType: EnumControltypes.ctAppLink },
+                { field: 'laender', controlType: EnumControltypes.ctAppLink, enabled: () => false /* dient nur der Anzeige und wird seitens der Laender-App gepflegt */ },
             ]
         },
     },
 
     actions: {
-        neu: {
-            isPrimaryAction: true,
-
-            description: 'Neuzugang einer Ländergruppe',
-            icon: 'fas fa-plus',
-            
-            visibleBy: [ 'ADMIN' ],
-            executeBy: [ 'ADMIN' ],
-
-            onExecute: { redirect: '/konfiguration/laendergruppen/new' }
-        },
+        ...DefaultAppActions.newDocument(['ADMIN'])
     },
 
     methods: {
@@ -134,14 +125,9 @@ export const Laendergruppen = Konfiguration.createApp<Laendergruppe>('laendergru
 });
 
 
-export const ReportLaendergruppenAll = MebedoWorld.createReport<Laendergruppe, never>('laendergruppen-all', {
-    type: 'table',
-    
+export const ReportLaendergruppenAll = MebedoWorld.createReport<Laendergruppe, never>('laendergruppen-all', {   
     title: 'Alle Ländergruppen',
     description: 'Zeigt alle Ländergruppen.',
-
-    /*sharedWith: [],
-    sharedWithRoles: ['EVERYBODY'],*/
 
     isStatic: false,
 
@@ -152,34 +138,33 @@ export const ReportLaendergruppenAll = MebedoWorld.createReport<Laendergruppe, n
     liveDatasource: ({ isServer, publication, currentUser }) => {
         if (isServer && !currentUser) return publication?.ready();
         
-        let $Laendergruppen;
-        if (isServer)
-            $Laendergruppen = Laendergruppen
-        else
-            $Laendergruppen = getAppStore('laendergruppen');
-        return $Laendergruppen.find({}, { sort: { title: 1 } });
+        const appStore = isServer ? Laendergruppen : getAppStore('laendergruppen');
+        
+        return appStore.find({}, { sort: { title: 1 } });
     },
 
-    columns: [
-        {
-            title: 'Symbol',
-            key: 'imageUrl',
-            dataIndex: 'imageUrl',
-            render: (imageUrl) => <img src={imageUrl} width="48" height="auto" />
-        },
-        {
-            title: 'Ländergruppe',
-            key: 'title',
-            dataIndex: 'title',
+    type: 'table',
+    tableDetails: {
+        columns: [
+            {
+                title: 'Symbol',
+                key: 'imageUrl',
+                dataIndex: 'imageUrl',
+                render: (imageUrl) => <img src={imageUrl} width="48" height="auto" />
+            },
+            {
+                title: 'Ländergruppe',
+                key: 'title',
+                dataIndex: 'title',
 
-        },
-        {
-            title: 'Kurzbeschreibung',
-            key: 'description',
-            dataIndex: 'description',
-        },
-
-    ],
+            },
+            {
+                title: 'Kurzbeschreibung',
+                key: 'description',
+                dataIndex: 'description',
+            },
+        ],
+    },
 
     actions: [
         {
@@ -220,7 +205,7 @@ export const ReportLaendergruppenAll = MebedoWorld.createReport<Laendergruppe, n
                         title: `Ländergruppe löschen?`,
                         content: <div>Das Löschen des Landes <b>{row.title}</b> kann nicht rückgängig gemacht werden!</div>,
                         onOk() {
-                            invoke('laendergruppen.removeDocument', { productId: 'konfiguration', appId: 'laendergruppen', docId: row._id }, (err: any, res: IGenericRemoveResult) => {
+                            invoke('laendergruppen.removeDocument', row._id, (err: any, res: IGenericRemoveResult) => {
                                 if (err) {
                                     console.log(err);
                                     return message.error('Es ist ein unbekannter Fehler aufgetreten.');

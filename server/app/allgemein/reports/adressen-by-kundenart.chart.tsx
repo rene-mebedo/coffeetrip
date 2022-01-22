@@ -8,16 +8,14 @@ import { IChartData } from '/imports/api/types/world';
 import { ChartData, ChartOptions } from 'chart.js';
 
 export const ChartAdressenByKundenart = MebedoWorld.createReport<Adresse, Adresse>('adressen-by-kundenart.chart', {
-
-    type: 'chart',
-    chartType: 'bar',
-    
     title: 'Anzahl Adressen gemäß Kundenart',
     description: 'Zählt alle Adressen der angegebenen Kundenart.',
 
-    /*sharedWith: [],
-    sharedWithRoles: ['EVERYBODY'],*/
-
+    type: 'chart',
+    chartDetails: {
+        chartType: 'bar'
+    },
+    
     isStatic: false,
 
     liveDatasource: ({ isServer, publication, currentUser }) => {

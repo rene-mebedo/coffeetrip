@@ -91,7 +91,7 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
     },
     
     sharedWith: [],
-    sharedWithRoles: ['EMPLOYEE'],
+    sharedWithRoles: ['ADMIN', 'EMPLOYEE'],
 
     fields: {
         title: {
@@ -278,10 +278,13 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
     actions: {
         neu: {
             isPrimaryAction: true,
-
+            
+            title: 'Neu',
             description: 'Neuzugang eines Teilprojekt',
             icon: 'fas fa-plus',
             
+            environment: ['Dashboard'],
+
             visibleBy: [ 'ADMIN', 'EMPLOYEE' ],
             executeBy: [ 'ADMIN', 'EMPLOYEE' ],
 
@@ -367,7 +370,7 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
                 // so muss die Definition in die einzelne AKT nachgetriggert werden
                 const akts = await Aktivitaeten.raw().find({ 'teilprojekt._id' : tpId }, { session }).toArray();
                 akts.forEach( akt => {
-                    Aktivitaeten.updateOne(akt._id, { stundenProTag: NEW.stundenProTag });
+                    Aktivitaeten.updateOne(akt._id, { stundenProTag: NEW.stundenProTag }, { session, skipPermissions: true } );
                 });
             }
 
@@ -382,7 +385,7 @@ export const Teilprojekte = Consulting.createApp<Teilprojekt>({
                     
                     const result = await Aktivitaeten.updateOne(akt._id, {
                         status: NEW.status
-                    }, { session });
+                    }, { session, skipPermissions: true });
 
                     if (result.status != EnumMethodResult.STATUS_OKAY) {
                         return result;

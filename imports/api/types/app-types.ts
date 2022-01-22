@@ -1,4 +1,4 @@
-import { IMethodStatus, IReport, TMoment } from "./world";
+import { IMethodStatus, IRunScriptTools, TMoment, TReport } from "./world";
 import { EnumControltypes, EnumDocumentModes, EnumFieldTypes, EnumMethodResult } from "../consts";
 import { IGenericDocument } from "../lib/core";
 import { App } from "../lib/app";
@@ -8,6 +8,8 @@ import { Rule } from "antd/lib/form";
 import { ModalFunc } from "antd/lib/modal/confirm";
 import { MessageApi } from "antd/lib/message";
 import { NotificationApi } from "antd/lib/notification";
+import { SliderSingleProps } from "antd/lib/slider";
+import React from "react";
 
 export interface IPostProps {
     docId: string
@@ -264,6 +266,11 @@ export interface IAppLayoutElementAppLink<T> extends IGenericAppLayoutElement<T>
     maxItems?: number
 }
 
+export interface IAppLayoutElementSlider<T> extends IGenericAppLayoutElement<T> {
+    controlType: EnumControltypes.ctSlider,
+    sliderDetails: SliderSingleProps
+}
+
 
 export interface IAppLayoutElementOptionInput<T> extends IGenericAppLayoutElement<T> {
     controlType: EnumControltypes.ctOptionInput,
@@ -278,12 +285,11 @@ export interface IAppLayoutElementGenericInput<T> extends IGenericAppLayoutEleme
                  EnumControltypes.ctNumberInput | 
                  EnumControltypes.ctCurrencyInput | 
                  EnumControltypes.ctDateInput | 
-                 EnumControltypes.ctDatespanInput | 
+                 EnumControltypes.ctDatespanInput |
                  EnumControltypes.ctTimespanInput | 
                  EnumControltypes.ctYearInput | 
                  EnumControltypes.ctHtmlInput |
-                 EnumControltypes.ctSingleModuleOption;
-                 //EnumControltypes.ctReport;                
+                 EnumControltypes.ctSingleModuleOption;         
 }
 
 export type TAppLayoutElement<T> = IAppLayoutElementReport<T> |
@@ -296,6 +302,7 @@ export type TAppLayoutElement<T> = IAppLayoutElementReport<T> |
                                 IAppLayoutElementGenericInput<T> |
                                 IAppLayoutElementWidgetSimple<T> |
                                 IAppLayoutElementAppLink<T> |
+                                IAppLayoutElementSlider<T> |
                                 IAppLayoutElementColumns<T>;
 
 
@@ -327,8 +334,9 @@ export interface IAppMethodsDefaultProps<T> {
 }
 
 export interface IAppMethodResult {
-    status: EnumMethodResult,
-    statusText?: string | null,
+    status: EnumMethodResult
+    errCode?: number
+    statusText?: string | null
 }
 
 export interface ITriggerTools<T> {
@@ -336,12 +344,12 @@ export interface ITriggerTools<T> {
      * Returns True if the specified property value has changed,
      * otherwise False
      */
-     hasChanged: (propName: keyof T) => boolean
+    hasChanged: (propName: keyof T) => boolean
      /**
       * Returns the current Value of the give Prop
       * inside the update-trigger
       */
-     currentValue: (propName: keyof T) => any 
+    currentValue: (propName: keyof T) => any 
 }
 
 export interface IDefaultsTriggerExtras<T> extends ITriggerTools<T> {
@@ -379,17 +387,57 @@ export interface IAppMethods<T> {
     onAfterRemove?: (values: AppData<T>, triggerExtras: IRemoveTriggerExtras<T>) => Promise<IAppMethodResult>,
 }
 
-export interface IAppActions {
-    isPrimaryAction: boolean,
+export type TEnvironment = 'ReportPage' | 'Dashboard' | 'Document'
 
+export interface IAppActionVisibilityProps<T> {
+    environment: TEnvironment
+    document: AppData<T>
+}
+
+export interface IAppAction<T> {
+    title: string
     description: string,
     icon: string | undefined,
 
-    visibleBy: Array<string>,
-    executeBy: Array<string>,
+    /**
+     * Specifies a className for the AppAction to style via 
+     * CSS or Less
+     */
+    className?: string
+
+    /**
+     * Some individual Element-style
+     */
+    style?: React.CSSProperties
+
+    isPrimaryAction: boolean,
+
+    /**
+     * Function to check if the action is visible or not
+     */
+    visible?: ({environment, document}:IAppActionVisibilityProps<T>)=>boolean
+    
+    visibleBy: Array<string>
+    executeBy: Array<string>
+
+    /**
+     * Gibt die Umgebung an, an der die Action angeboten werden darf
+     */
+    environment: Array<'ReportPage' | 'Dashboard' | 'Document'>
 
     onExecute: {
+        /**
+         * Redirect to any url
+         */
         redirect?: string
+        /**
+         * force a standard action
+         */
+        force?: 'new' | 'edit' | 'remove'
+        /**
+         * Client-Script that should be executed
+         */
+        runScript?: (document: AppData<T>, tools: IRunScriptTools) => void
     }
 
 }
@@ -397,6 +445,16 @@ export interface IAppActions {
 interface IAppDashboardElementTypeGeneric {
     _id: string
     width?: ColProps
+}
+
+export interface IAppDashboardElementCard extends IAppDashboardElementTypeGeneric {
+    type: 'report'
+    details: {        
+        reportId: string
+        type: 'card'
+        //cardType: 'bar' | 'line' | 'pie'
+        document?: DefaultAppData<any>
+    }
 }
 
 export interface IAppDashboardElementChart extends IAppDashboardElementTypeGeneric {
@@ -428,13 +486,18 @@ export interface IAppDashboardElementReport extends IAppDashboardElementTypeGene
     }
 }
 
-export type TAppDashboardElementType = IAppDashboardElementReport | IAppDashboardElementWidget | IAppDashboardElementChart;
+export type TAppDashboardElementType =  IAppDashboardElementReport | 
+                                        IAppDashboardElementWidget | 
+                                        IAppDashboardElementChart |
+                                        IAppDashboardElementCard;
 
 export type TAppDashboardRow = { elements: Array<TAppDashboardElementType> };
 
 export interface IAppDashboard {
     rows: Array<TAppDashboardRow>
 }
+
+export type InsertableAppData<T> = { [key in keyof T]?: T[key] }
 
 /**
  * Every AppData property as optional of Type T without the _id prop
@@ -461,6 +524,10 @@ export interface IGenericApp {
 
 export type TAppFields<T> = {
     [key in keyof T]: IAppField<T>
+}
+
+export type TAppActions<T> =  {
+    [key: string]: IAppAction<T>
 }
 
 export interface IApp<T> {
@@ -495,11 +562,9 @@ export interface IApp<T> {
     fields: TAppFields<T>,
 
     layouts: {
-        [key: string]: IAppLayout<T> // old U
+        [key: string]: IAppLayout<T>
     },
-    actions: {
-        [key: string]: IAppActions
-    },
+    actions: TAppActions<T>
 
     methods: IAppMethods<T>
 
@@ -520,7 +585,7 @@ export interface IAppsresult<T> extends IMethodStatus {
 }
 
 export interface IGetReportResult extends IMethodStatus {
-    report?: IReport<any, any>
+    report?: TReport<any, any>
 }
 
 export interface IGenericInsertArguments<T> {

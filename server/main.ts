@@ -22,6 +22,7 @@ import './app/akademie/';
 import './app/akademie/apps/seminarmodule';
 import './app/akademie/apps/seminare';
 import './app/akademie/apps/seminarteilnehmer';
+import './app/akademie/apps/dozenten';
 
 import './app/consulting/';
 import './app/consulting/apps/projekte';
@@ -37,8 +38,10 @@ import './app/intern/apps/urlaubskonto';
 import './app/intern/apps/urlaubsanspruch';
 
 // ganz am Ende importieren wir die Reports
-import './app/akademie/reports';
 import './app/allgemein/reports';
+import './app/akademie/reports';
+import './app/consulting/reports/projekte-by-user.card';
+
 
 Meteor.publish('currentUser', function publishCurrentUser(this:Subscription): Mongo.Cursor<Meteor.User, Meteor.User> | null {
     if (!this.userId) {

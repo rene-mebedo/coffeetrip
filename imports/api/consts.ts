@@ -24,6 +24,7 @@ export enum EnumControltypes {
     ctStringInput = 'String',
     ctTextInput = 'Text',
     ctNumberInput = 'Number',
+    ctSlider = 'Slider',
     ctCurrencyInput = 'Currency',
     ctHtmlInput = 'Html',
     ctDateInput = 'Date',
@@ -48,5 +49,6 @@ export enum EnumControltypes {
 export enum EnumDocumentModes {
     NEW = 'NEW',
     EDIT = 'EDIT',
-    SHOW = 'SHOW'
+    SHOW = 'SHOW',
+    DASHBOARD = 'DASHBOARD'
 }

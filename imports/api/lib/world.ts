@@ -3,14 +3,30 @@ import { Mongo } from 'meteor/mongo';
 
 import { EnumMethodResult } from '/imports/api/consts';
 import { Product } from './product';
-import { IApp, IAppresult, IAppsresult, IGetReportResult } from '/imports/api/types/app-types';
+import { IApp, IAppMethodResult, IAppresult, IAppsresult, IGetReportResult } from '/imports/api/types/app-types';
 import { MethodInvocationFunction } from './types';
 
-import { IWorld, IWorldUser, IProduct, IProductresult, IProductsresult, IClientCollectionResult, IReport } from '/imports/api/types/world';
+import { IWorld, IWorldUser, IProduct, IProductresult, IProductsresult, IClientCollectionResult, TReport } from '/imports/api/types/world';
 import { ProductSchema, AppSchema, ReportSchema, LockSchema } from './schemas';
 import { Report } from './report';
 import { check } from 'meteor/check';
 import { Avatars } from './avatars';
+
+//import { MongoInternals, InsertOneWriteOpResult, UpdateWriteOpResult, WriteOpResult } from 'meteor/mongo';
+import * as SuperMongo from "meteor/mongo";
+import { userHasOneOrMoreRequiredRole } from './security';
+const { MongoInternals } = SuperMongo as unknown as any;
+
+export interface InsertOneWriteOpResult {
+    insertedId: string
+}
+export interface UpdateWriteOpResult {
+    modifiedCount: number
+}
+export interface WriteOpResult {
+    result: { ok: number }
+}
+
 
 export interface IDocumentLock {
     _id: string
@@ -30,7 +46,7 @@ export class World {
     public worldCollection: Mongo.Collection<IWorld>;
     public productCollection: Mongo.Collection<IProduct>;
     public appCollection: Mongo.Collection<IApp<any>>;
-    public reportCollection: Mongo.Collection<IReport<any, any>>;
+    public reportCollection: Mongo.Collection<TReport<any, any>>;
 
     public locksCollection: Mongo.Collection<IDocumentLock>;
 
@@ -105,7 +121,7 @@ export class World {
         return new Product(this, productDef);
     }
 
-    public createReport<T, Parent>( reportId: string, reportDef: IReport<T, Parent>): Report {
+    public createReport<T, Parent>( reportId: string, reportDef: TReport<T, Parent>): Report {
         reportDef._id = reportId;
         return new Report(this, reportDef);
     }
@@ -219,6 +235,21 @@ export class World {
                 return { status: EnumMethodResult.STATUS_NOT_FOUND, statusText: `The app with the id "${appId}" was not found.` };
             }
 
+            // rausfilteren der actions, die für den aktuellen Benutzer möglich sind
+            const appActions = { ...app.actions };
+            const actionCodes = Object.keys(appActions);
+            
+            
+            app.actions = {}
+            actionCodes.forEach( code => {
+                const action = appActions[code];
+                if (userHasOneOrMoreRequiredRole(currentUser.userData.roles, appActions[code].visibleBy)) {
+                    app.actions[code] = action
+                }
+            });
+            
+
+
             return { status: EnumMethodResult.STATUS_OKAY, app }
         }
     }
@@ -302,8 +333,36 @@ export class World {
             check(reportId, String);
             
             const report = Reports.findOne({ _id: reportId });
-
+            
             return { status: EnumMethodResult.STATUS_OKAY, report }
         }
     }
+
+    public async runTransaction(transactionHandler:(session:any)=>Promise<IAppMethodResult>): Promise<IAppMethodResult> {
+
+        const { client } = MongoInternals.defaultRemoteCollectionDriver().mongo;
+        const session = await client.startSession();
+        await session.startTransaction();
+
+        try {
+            // running the async operations
+            const result = await transactionHandler(session);
+            if (result.status != EnumMethodResult.STATUS_OKAY) {
+                await session.abortTransaction();
+            } else {
+                await session.commitTransaction();
+            }
+            // transaction committed - return value to the caller
+            return result;
+        } catch (err) {
+            await session.abortTransaction();
+
+            console.error(err.message);
+            // transaction aborted - report error to the client
+            throw new Meteor.Error('Database Transaction Failed', err.message);
+        } finally {
+            session.endSession();
+        }
+    }
+
 }

@@ -12,15 +12,9 @@ import { Urlaubskonto } from '../apps/urlaubskonto';
 import { Urlaubsanspruch } from '../apps/urlaubsanspruch';
 import { StatusUrlaubsanspruch } from '../apps/status-urlaubsanspruch';
 
-export const UrlaubsanspruchByKonto = MebedoWorld.createReport<Urlaubsanspruch, Urlaubskonto>('urlaubsanspruch-by-konto', {
-
-    type: 'table',
-    
+export const UrlaubsanspruchByKonto = MebedoWorld.createReport<Urlaubsanspruch, Urlaubskonto>('urlaubsanspruch-by-konto', {    
     title: 'Urlaubsansprüche',
     description: 'Zeigt alle Urlaubsansprüche für dieses Urlaubskonto an.',
-
-    /*sharedWith: [],
-    sharedWithRoles: ['EVERYBODY'],*/
 
     isStatic: false,
 
@@ -39,48 +33,51 @@ export const UrlaubsanspruchByKonto = MebedoWorld.createReport<Urlaubsanspruch, 
         StatusUrlaubsanspruch
     },
 
-    columns: [
-        {
-            title: 'Betreff',
-            dataIndex: 'title',
-            key: 'title',
-            render: (title: any, teilnehmer, extras: IReportRendererExtras) => {                
-                const { _id } = teilnehmer;
-                const { isExport } = extras;
+    type: 'table',
+    tableDetails: {
+        columns: [
+            {
+                title: 'Betreff',
+                dataIndex: 'title',
+                key: 'title',
+                render: (title: any, teilnehmer, extras: IReportRendererExtras) => {                
+                    const { _id } = teilnehmer;
+                    const { isExport } = extras;
 
-                return (
-                    isExport 
-                        ? title
-                        : <a href={`/intern/urlaubsanspruch/${_id}`}>{title}</a>
-                );
-            }
-        },
-        {
-            title: 'Status',
-            dataIndex: 'status',
-            key: 'status',
-            render: (status: string, _urlaubsanspruch: AppData<Urlaubsanspruch>, { injectables, isExport }: IReportRendererExtras ) => {
-                const { StatusUrlaubsanspruch } = injectables;
-                const anspruchStatus = StatusUrlaubsanspruch.find( ({_id}:{_id:any}) => _id == status );
-                
-                if (!anspruchStatus) {
-                    return isExport ? '!!' + status : <Tag>{'!!' + status}</Tag>
+                    return (
+                        isExport 
+                            ? title
+                            : <a href={`/intern/urlaubsanspruch/${_id}`}>{title}</a>
+                    );
                 }
-                return (
-                    isExport
-                        ? anspruchStatus.title
-                        : <Tag style={{color:anspruchStatus.color, backgroundColor:anspruchStatus.backgroundColor, borderColor:anspruchStatus.color}}>
-                            {anspruchStatus.title}
-                        </Tag>
-                );
             },
-        },
-        {
-            title: 'Tage',
-            dataIndex: 'anzahlTage',
-            key: 'anzahlTage',
-        },
-    ],
+            {
+                title: 'Status',
+                dataIndex: 'status',
+                key: 'status',
+                render: (status: string, _urlaubsanspruch: AppData<Urlaubsanspruch>, { injectables, isExport }: IReportRendererExtras ) => {
+                    const { StatusUrlaubsanspruch } = injectables;
+                    const anspruchStatus = StatusUrlaubsanspruch.find( ({_id}:{_id:any}) => _id == status );
+                    
+                    if (!anspruchStatus) {
+                        return isExport ? '!!' + status : <Tag>{'!!' + status}</Tag>
+                    }
+                    return (
+                        isExport
+                            ? anspruchStatus.title
+                            : <Tag style={{color:anspruchStatus.color, backgroundColor:anspruchStatus.backgroundColor, borderColor:anspruchStatus.color}}>
+                                {anspruchStatus.title}
+                            </Tag>
+                    );
+                },
+            },
+            {
+                title: 'Tage',
+                dataIndex: 'anzahlTage',
+                key: 'anzahlTage',
+            },
+        ],
+    },
 
     actions: [
         {

@@ -8,6 +8,7 @@ import { MebedoWorld } from "../../mebedo-world";
 import { getAppStore } from "/imports/api/lib/core";
 
 import { Fibu } from "..";
+import { DefaultAppActions } from "../../defaults";
 
 export interface Kontierung extends IGenericApp {
     /**
@@ -242,17 +243,7 @@ export const Kontierungen = Fibu.createApp<Kontierung>('kontierungen', {
     },
 
     actions: {
-        neu: {
-            isPrimaryAction: true,
-
-            description: 'Neuzugang einer Kontiergruppe',
-            icon: 'fas fa-plus',
-            
-            visibleBy: [ 'ADMIN' ],
-            executeBy: [ 'ADMIN' ],
-
-            onExecute: { redirect: '/fibu/kontierungen/new' }
-        },
+        ...DefaultAppActions.newDocument(['ADMIN'])
     },
 
     methods: {
@@ -274,9 +265,7 @@ export const Kontierungen = Fibu.createApp<Kontierung>('kontierungen', {
 });
 
 
-export const ReportKontierungenAll = MebedoWorld.createReport<Kontierung, never>('kontierungen-all', {
-    type: 'table',
-    
+export const ReportKontierungenAll = MebedoWorld.createReport<Kontierung, never>('kontierungen-all', {    
     title: 'Alle Kontierungen',
     description: 'Zeigt alle Kontierungen.',
 
@@ -300,53 +289,56 @@ export const ReportKontierungenAll = MebedoWorld.createReport<Kontierung, never>
         return $Kontierungen.find({}, { sort: { title: 1 } });
     },
 
-    columns: [
-        {
-            title:'Allgemein',
-            children: [
-                {
-                    title: 'Kontierung',
-                    key: 'title',
-                    dataIndex: 'title',
-        
-                },
-                {
-                    title: 'Beschreibung',
-                    key: 'description',
-                    dataIndex: 'description',
-                },
-                {
-                    title: 'Gültigkeit',
-                    key: 'gueltigkeit',
-                    dataIndex: 'gueltigkeit',
-                    render: (gueltigkeit: Array<Date>, _kontierung: AppData<Kontierung>, { moment }) => {
-                        return `${moment(gueltigkeit[0]).format('DD.MM.YYYY')} bis ${moment(gueltigkeit[1]).format('DD.MM.YYYY')}`;
-                    }
-                },
-            ]
-        },
-        {
-            title: 'Fibu',
-            children: [
-                {
-                    title: 'Steuersatz',
-                    key: 'ustsatzVh',
-                    dataIndex: 'ustsatzVh',
-                    align: 'right'
-                },
-                {
-                    title: 'Steuerkonto',
-                    key: 'steuerkonto',
-                    dataIndex: 'steuerkonto',
-                },
-                {
-                    title: 'Erlöskonto',
-                    key: 'erloeskonto',
-                    dataIndex: 'erloeskonto',
-                },
-            ]
-        }
-    ],
+    type: 'table',
+    tableDetails: {
+        columns: [
+            {
+                title:'Allgemein',
+                children: [
+                    {
+                        title: 'Kontierung',
+                        key: 'title',
+                        dataIndex: 'title',
+            
+                    },
+                    {
+                        title: 'Beschreibung',
+                        key: 'description',
+                        dataIndex: 'description',
+                    },
+                    {
+                        title: 'Gültigkeit',
+                        key: 'gueltigkeit',
+                        dataIndex: 'gueltigkeit',
+                        render: (gueltigkeit: Array<Date>, _kontierung: AppData<Kontierung>, { moment }) => {
+                            return `${moment(gueltigkeit[0]).format('DD.MM.YYYY')} bis ${moment(gueltigkeit[1]).format('DD.MM.YYYY')}`;
+                        }
+                    },
+                ]
+            },
+            {
+                title: 'Fibu',
+                children: [
+                    {
+                        title: 'Steuersatz',
+                        key: 'ustsatzVh',
+                        dataIndex: 'ustsatzVh',
+                        align: 'right'
+                    },
+                    {
+                        title: 'Steuerkonto',
+                        key: 'steuerkonto',
+                        dataIndex: 'steuerkonto',
+                    },
+                    {
+                        title: 'Erlöskonto',
+                        key: 'erloeskonto',
+                        dataIndex: 'erloeskonto',
+                    },
+                ]
+            }
+        ],
+    },
 
     actions: [
         {
@@ -387,7 +379,7 @@ export const ReportKontierungenAll = MebedoWorld.createReport<Kontierung, never>
                         title: `Kontierung löschen?`,
                         content: <div>Das Löschen der Kontierung <b>{row.title}</b> kann nicht rückgängig gemacht werden!</div>,
                         onOk() {
-                            invoke('kontierungen.removeDocument', { productId: 'fibu', appId: 'kontierung', docId: row._id }, (err: any, res: IGenericRemoveResult) => {
+                            invoke('kontierungen.removeDocument', row._id, (err: any, res: IGenericRemoveResult) => {
                                 if (err) {
                                     console.log(err);
                                     return message.error('Es ist ein unbekannter Fehler aufgetreten.');

@@ -466,6 +466,11 @@ export const AppLayoutElementsSchema = new SimpleSchema({
     maxItems: { // max Anzahl auszuwählender Einträge in dem alyouttype AppLink
         type: SimpleSchema.Integer,
         optional: true
+    },
+    sliderDetails: {
+        type: Object,
+        blackbox: true,
+        optional: true
     }
 });
 
@@ -510,6 +515,15 @@ export const AppActionSchema = new SimpleSchema({
         type: String,
         label: 'Symbol'
     },
+    className: {
+        type: String,
+        optional: true
+    },
+    style: {
+        type: Object,
+        blackbox: true,
+        optional: true
+    },
     isPrimaryAction: {
         type: Boolean,
         label: 'Kennung der Primäraktion',
@@ -519,6 +533,18 @@ export const AppActionSchema = new SimpleSchema({
         type: Object
     },
     'onExecute.redirect': {
+        type: String,
+        optional: true
+    },
+    'onExecute.force': {
+        type: String, // new, edit, remove
+        optional: true
+    },
+    'onExecute.runScript': {
+        type: String,
+        optional: true
+    },
+    visible:{
         type: String,
         optional: true
     },
@@ -535,7 +561,16 @@ export const AppActionSchema = new SimpleSchema({
     },
     'executeBy.$': {
         type: String
-    }
+    },
+
+    environment: {
+        type: Array,
+        defaultValue: ['Document'],
+        optional: true
+    },
+    'environment.$': {
+        type: String
+    },
 });
 
 
@@ -552,29 +587,59 @@ export const ReportSchema = new SimpleSchema({
         type: String,
         label: 'Beschreibung'
     },
-    noHeader: {
-        type: Boolean,
-        optional: true
-    },
     icon: {
         type: String,
         label: 'Symbol',
         optional: true
     },
-    columns: {
-        type: Array,
-        optional: true,
-    },
-    'columns.$': {
+    tableDetails: {
         type: new SimpleSchema({
+            noHeader: {
+                type: Boolean,
+                optional: true
+            },
+
+            nestedReportId: {
+                type: String,
+                optional: true
+            },
+
+            columns: {
+                type: Array,
+                optional: true,
+            },
+            'columns.$': {
+                type: new SimpleSchema({
+                    title: { type: String },
+                    key: { type: String, optional: true },
+                    dataIndex: { type: String, optional: true },
+                    render: { type: String, optional: true },
+                    align: { type: String, optional: true },
+                    children: { type: Array, blackbox: true, optional: true },
+                    'children.$': { type: Object, blackbox: true, optional: true }
+                })
+            },
+        }),
+        optional: true
+    },
+    cardDetails: {
+        type: new SimpleSchema({
+            width: {
+                type: Object,
+                blackbox: true
+            },
             title: { type: String },
-            key: { type: String, optional: true },
-            dataIndex: { type: String, optional: true },
-            render: { type: String, optional: true },
-            align: { type: String, optional: true },
-            children: { type: Array, blackbox: true, optional: true },
-            'children.$': { type: Object, blackbox: true, optional: true }
-        })
+            description: { type: String },
+            avatar: { type: String, optional: true },
+            cover: { type: String, optional: true },
+        }),
+        optional: true
+    },
+    chartDetails: {
+        type: new SimpleSchema({
+            chartType: { type: String }
+        }),
+        optional: true
     },
     staticDatasource: { // datasource für static reports
         type: String,
@@ -598,15 +663,10 @@ export const ReportSchema = new SimpleSchema({
         type: String,
         optional: true
     },
-    // only available for type='table'
-    nestedReportId: {
+    /*chartType: {
         type: String,
         optional: true
-    },
-    chartType: {
-        type: String,
-        optional: true
-    },
+    },*/
     actions: {
         type: Array,
         optional: true
@@ -678,6 +738,11 @@ export const ReportSchema = new SimpleSchema({
                         type: new SimpleSchema({
                             filename: { type: String }
                         }),
+                        optional: true
+                    },
+                    context: {
+                        type: Object,
+                        blackbox: true,
                         optional: true
                     },
                     runScript: { // Funktion, die als methode für Server und client registriert wird

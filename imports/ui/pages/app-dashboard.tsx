@@ -1,7 +1,4 @@
-import React, { Fragment, useEffect, useState } from 'react';
-
-import { Meteor } from 'meteor/meteor';
-
+import React, { Fragment } from 'react';
 
 import PageHeader from 'antd/lib/page-header';
 import Button from 'antd/lib/button';
@@ -10,8 +7,8 @@ import Affix from 'antd/lib/affix';
 
 import Row from 'antd/lib/row';
 import Col from 'antd/lib/col';
+import notification from 'antd/lib/notification';
 import Result, { ResultStatusType } from 'antd/lib/result';
-
 
 /*const {
     Header, 
@@ -23,143 +20,10 @@ import { useProduct, useApp } from '/client/clientdata';
 
 import { FlowRouter } from 'meteor/kadira:flow-router';
 import { EnumDocumentModes, EnumMethodResult } from '/imports/api/consts';
-import { TAppDashboardElement, TAppDashboardElementType } from '/imports/api/types/app-types';
+import { IAppAction, TAppActions, TAppDashboardElementType } from '/imports/api/types/app-types';
 import { ReportControl } from '../components/layout-controls/report';
 import { IWorldUser } from '/imports/api/types/world';
-
-/*export const GenericTableReport = ( { report }: any) => {
-    const [ loadingData, setLoadingData ] = useState(true);
-    const [ reportData, setReportData ] = useState(null);
-    const [ firstTime, setFirstTime ] = useState(true);
-
-    if (reportData === null && firstTime) {
-        Meteor.call('reports.' + report._id, {}, (err: Meteor.Error, result:any) => {
-            if (err) {
-                // mach was um den Anwender zu informieren, dass ein Fehler aufgetreten ist
-                message.error(err.message);
-            } else {
-                setReportData(result);
-                setLoadingData(false);
-            }
-        });
-        setFirstTime(false);
-    }
-
-    if (report.columns) {
-        report.columns = report.columns.map( c => {
-            const fnCode = c.render;
-            
-            if (fnCode) {
-                c.render = function renderColumn(col, doc) {
-                    let renderer = eval(fnCode);
-                    return renderer(col, doc, report.additionalData || {});
-                }
-            };
-            
-            return c;
-        });
-    }
-
-    return (
-        loadingData 
-            ? <Spinner />
-            : <Table dataSource={reportData} columns={report.columns} />
-    );
-}*/
-
-/*
-export const GenericChart = ({element, options, chartType}) => {
-    const type = chartType;
-    const { static, report, params, onClick } = element;
-
-    const [ loadingData, setLoadingData ] = useState(true);
-    const [ data, setData ] = useState(null);
-    
-    useEffect( () => {
-        if (static && data === null) {
-            Meteor.call('reports.' + report._id, params, (err, result) => {
-                if (err) {
-                    // mach was um den Anwender zu informieren, dass ein Fehler aufgetreten ist
-                } else {
-                    setData(result);
-                    setLoadingData(false);
-                }
-            });
-        } else {
-            // realtime
-
-        }
-    })
-
-    drillDown = () => {
-        if (onClick && onClick.redirect) {
-            FlowRouter.go(onClick.redirect);
-        }
-    }
-
-    if ( loadingData ) 
-        return <Spinner />;
-
-    return (
-        <div onClick={drillDown} style={{cursor:'pointer'}} >
-            { ( type == 'Bar')
-            ? <Bar key={element._id} data={data} options={options} />
-            : <Line key={element._id} data={data} options={options} /> }
-        </div>
-    );
-}
-*/
-/*
-export const GenericWidget = ({element}) => {
-    const { static, report, params, onClick } = element;
-
-    const [ loadingData, setLoadingData ] = useState(true);
-    const [ data, setData ] = useState(null);
-    
-    
-    useEffect( () => {
-        if (static && data === null) {
-            Meteor.call('reports.' + report._id, params, (err, result) => {
-                console.log(report._id, err, result);
-
-                if (err) {
-                    // mach was um den Anwender zu informieren, dass ein Fehler aufgetreten ist
-                } else {
-                    setData(result);
-                    setLoadingData(false);
-                }
-            });
-        } else {
-            // realtime
-
-        }
-    })
-
-    drillDown = () => {
-        if (onClick && onClick.redirect) {
-            FlowRouter.go(onClick.redirect);
-        }
-    }
-
-    if ( loadingData )
-        return <Spinner />;
-
-    return (
-        <div onClick={drillDown} style={{cursor:'pointer'}} >
-            <Card hoverable>
-                <Card.Meta
-                    avatar={<Avatar icon={<i className={data.icon || element.icon} />}/>}
-                    title={data.label || element.label}
-                />
-                <Statistic
-                    value={data.value}
-                    valueStyle={{ color: data.color || element.color }}
-                />
-            </Card>
-        </div>
-    );
-}
-*/
+import { IGenericDocument } from '/imports/api/lib/core';
 
 interface IAppDashboardPageProps {
     currentUser: IWorldUser
@@ -229,24 +93,23 @@ export const AppDashboardPage = ( props: IAppDashboardPageProps) => {
     const dashboardName = (app.dashboardPicker as Function)();
     const dashboard = (app.dashboards || {})[dashboardName];
     
-    /*const renderChart = ( element ) => {
-        if ( element.typedetail == 'Bar' )
-            return <GenericChart key={element.key} element={element} chartType='Bar'/>; //<Bar data={element.data} options={element.options} />;
-        else if ( element.typedetail == 'Line' )
-            return <GenericChart key={element.key} element={element} chartType='Line'/>; //<Line key={element.key} data={element.data} options={element.options} />;
-        else
-            return null;
-    }*/
-
     const getElement = ( element: TAppDashboardElementType ) => {
         if ( element.type ) {
             if ( element.type == 'report' || element.type == 'widget' || element.type == 'chart') {
-                const { type: reportType, reportId, document, defaults } = element.details;
+                const { type: _reportType, reportId, document } = element.details;
 
                 return (
                     <ReportControl 
                         environment='Dashboard'
-                        reportId={reportId} mode="dashboard" document={document} defaults={defaults} currentUser={props.currentUser}    
+                        reportId={reportId}
+                        mode={EnumDocumentModes.DASHBOARD}
+                        document={document as IGenericDocument}
+                        defaults={{} /* das Dashboard verfügt über keine Defaultwerte */}
+                        currentUser={props.currentUser}
+                        
+                        onValuesChange={null}
+                        elem={null}
+                        app={null}
                     />
                 )
             }
@@ -268,37 +131,50 @@ export const AppDashboardPage = ( props: IAppDashboardPageProps) => {
         }));
     };
     
-    const DashboardRows = ({ rows }:{ rows: Array<any> }): Array<JSX.Element | null> => {
-        return ( rows.map( ( row:any , index: number ) => {
-            if ( row.elements && row.elements.length )
-                return <Row key={index} gutter= {[16,16]}>
-                    { getElements( row.elements ) }
-                </Row>;
-            else
-                return null;
-        }));
+    const DashboardRows = ({ rows }:{ rows: Array<any> }): JSX.Element => {
+        return (
+            <Fragment>
+            { 
+                rows.map( ( row:any , index: number ) => {
+                    if ( row.elements && row.elements.length )
+                        return <Row key={index} gutter= {[16,16]}>
+                            { getElements( row.elements ) }
+                        </Row>;
+                    else
+                        return <Fragment/>;
+                })
+            }
+            </Fragment>
+        );
     }
 
-    const actionClick = ( action ) => {
-        return e => {
+    const actionClick = ( action: IAppAction<any> ) => {
+        return ( _e: any ) => {
             if (action.onExecute && action.onExecute.redirect) {
                 FlowRouter.go(action.onExecute.redirect);
+            }
+            if (action.onExecute && action.onExecute.force) {
+                if (action.onExecute.force == 'new') {
+                    FlowRouter.go(`/${productId}/${appId}/new`);
+                } else {
+                    notification.error({
+                        message: 'Befehl nicht ausführbar.',
+                        description: `Der Befehl "${action.onExecute.force}" kann in diesem Kontext nicht ausgeführt werden. Bitte wenden Sie sich an Ihren Administrator.`
+                    });
+                }
             }
         }
     }
 
-    const getExtras = ( actionsObj ) => {
-        const actions = Object.keys(actionsObj);
-
-        return actions.map( actionName => {
-            const a = actionsObj[actionName];
+    const getExtras = ( actions: TAppActions<any> ) => {
+        return Object.values(actions).filter( action => action.environment.find( env => env == 'Dashboard' ) ).map( (action, index) => {
             return (
                 <Button 
-                    key={actionName}
-                    type={a.isPrimaryAction ? 'primary' : 'default'}
-                    onClick={ actionClick(a) }
+                    key={index}
+                    type={action.isPrimaryAction ? 'primary' : 'default'}
+                    onClick={ actionClick(action) }
                 >
-                    {a.icon ? <i className={a.icon} style={{marginRight: 8}}/> : null} {a.title}
+                    {action.icon ? <i className={action.icon} style={{marginRight: 8}}/> : null} {action.title}
                 </Button>
             )
         });
@@ -308,10 +184,7 @@ export const AppDashboardPage = ( props: IAppDashboardPageProps) => {
         <Fragment>
             <Breadcrumb>
                 <Breadcrumb.Item>
-                    <a href="">Home</a>
-                </Breadcrumb.Item>
-                <Breadcrumb.Item>
-                    <a href="">Dashboards</a>
+                    <a href="/">Start</a>
                 </Breadcrumb.Item>
                 <Breadcrumb.Item>
                     {product?.title}
@@ -330,15 +203,13 @@ export const AppDashboardPage = ( props: IAppDashboardPageProps) => {
                 />
             </Affix>
 
-            <div>
-                {
-                    ( dashboard && dashboard.rows && dashboard.rows.length )
-                        ? <DashboardRows
-                            rows={dashboard.rows} 
-                        />
-                        : null
-                }
-            </div>
+            {
+                ( dashboard && dashboard.rows && dashboard.rows.length )
+                    ? <DashboardRows
+                        rows={dashboard.rows} 
+                    />
+                    : null
+            }
         </Fragment>
     );
 }

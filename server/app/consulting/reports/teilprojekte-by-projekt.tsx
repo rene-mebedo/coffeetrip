@@ -35,9 +35,6 @@ import { AppData } from '/imports/api/types/app-types';
 }
 
 export const TeilprojekteByProjekt = MebedoWorld.createReport<Teilprojekt, Projekt>('teilprojekte-by-projekt', {
-
-    type: 'table',
-    
     title: 'Teilprojekte',
     description: 'Zeigt alle Teilprojekte für das aktuelle Projekt an.',
 
@@ -62,163 +59,72 @@ export const TeilprojekteByProjekt = MebedoWorld.createReport<Teilprojekt, Proje
         Projektstati
     },
 
-    nestedReportId: AktivitaetenByTeilprojekte.reportId,
+    type: 'table',
+    tableDetails: {
+        nestedReportId: AktivitaetenByTeilprojekte.reportId,
+        
+        columns: [
+            {
+                title: 'Teilprojekt',
+                dataIndex: 'title',
+                key: 'title',
+                render: (title: string, teilprojekt, extras: IReportRendererExtras) => {                
+                    const { _id } = teilprojekt;
+                    const { isExport } = extras;
 
-    columns: [
-        {
-            title: 'Teilprojekt',
-            dataIndex: 'title',
-            key: 'title',
-            render: (title: string, teilprojekt, extras: IReportRendererExtras) => {                
-                const { _id } = teilprojekt;
-                const { isExport } = extras;
-
-                return (
-                    isExport 
-                        ? title
-                        : <a href={`/consulting/teilprojekte/${_id}`}>{title}</a>
-                );
-            }
-        },
-        {
-            title: 'Aufwand',
-            dataIndex: 'aufwandPlanMinuten',
-            key: 'aufwandPlanMinuten',
-            align: 'right',
-            render: renderAufwand
-        },
-        {
-            title: 'Ist',
-            dataIndex: 'aufwandIstMinuten',
-            key: 'aufwandIstMinuten',
-            align: 'right',
-            render: renderAufwand
-        },
-        {
-            title: 'Rest',
-            dataIndex: 'aufwandRestMinuten',
-            key: 'aufwandRestMinuten',
-            align: 'right',
-            render: renderAufwand
-        },
-        {
-            title: 'Status',
-            dataIndex: 'status',
-            key: 'status',
-            render: (status: string, _teilprojekt, { injectables, isExport }: IReportRendererExtras ) => {
-                const { Projektstati } = injectables;
-                const tpStatus = Projektstati.find( ({_id}:{_id:any}) => _id == status );
-                
-                if (!tpStatus) {
-                    return isExport ? '!!' + status : <Tag>{'!!' + status}</Tag>
+                    return (
+                        isExport 
+                            ? title
+                            : <a href={`/consulting/teilprojekte/${_id}`}>{title}</a>
+                    );
                 }
-                return (
-                    isExport
-                        ? tpStatus.title
-                        : <Tag style={{color:tpStatus.color, backgroundColor:tpStatus.backgroundColor, borderColor:tpStatus.color}}>
-                            {tpStatus.title}
-                        </Tag>
-                );
             },
-        },
-    ],
+            {
+                title: 'Aufwand',
+                dataIndex: 'aufwandPlanMinuten',
+                key: 'aufwandPlanMinuten',
+                align: 'right',
+                render: renderAufwand
+            },
+            {
+                title: 'Ist',
+                dataIndex: 'aufwandIstMinuten',
+                key: 'aufwandIstMinuten',
+                align: 'right',
+                render: renderAufwand
+            },
+            {
+                title: 'Rest',
+                dataIndex: 'aufwandRestMinuten',
+                key: 'aufwandRestMinuten',
+                align: 'right',
+                render: renderAufwand
+            },
+            {
+                title: 'Status',
+                dataIndex: 'status',
+                key: 'status',
+                render: (status: string, _teilprojekt, { injectables, isExport }: IReportRendererExtras ) => {
+                    const { Projektstati } = injectables;
+                    const tpStatus = Projektstati.find( ({_id}:{_id:any}) => _id == status );
+                    
+                    if (!tpStatus) {
+                        return isExport ? '!!' + status : <Tag>{'!!' + status}</Tag>
+                    }
+                    return (
+                        isExport
+                            ? tpStatus.title
+                            : <Tag style={{color:tpStatus.color, backgroundColor:tpStatus.backgroundColor, borderColor:tpStatus.color}}>
+                                {tpStatus.title}
+                            </Tag>
+                    );
+                },
+            },
+        ],
+    },
 
     actions: [
-        {
-            title: 'Neu',
-            inGeneral: true,
-            type: 'primary',
 
-            description: 'Neuzugang eines Teilprojekt',
-            icon: 'fas fa-plus',
-
-            visibleAt: ['Document'],
-
-            visibleBy: [ 'ADMIN', 'EMPLOYEE' ],
-            executeBy: [ 'ADMIN', 'EMPLOYEE' ],
-
-            disabled: ({ mode, data: _data, record: _record, defaults: _defaults, currentUser: _currentUser }) => mode == 'NEW',
-
-            onExecute: { 
-                redirect: '/consulting/teilprojekte/new?projektId={{parentRecord._id}}'
-            }
-        },
-        /*{
-            title: 'Export CSV',
-            inGeneral: true,
-            type: 'secondary',
-
-            description: 'Export der Reportdaten als CSV',
-            icon: 'fas fa-file-csv',
-
-            visibleAt: ['Document'],
-
-            visibleBy: [ 'ADMIN', 'EMPLOYEE' ],
-            executeBy: [ 'ADMIN', 'EMPLOYEE' ],
-
-            visible: ({ mode, data, record, defaults, currentUser }) => {
-                return mode != 'NEW'// && data && data.length > 0
-            },
-
-            onExecute: { 
-                exportToCSV: { filename: 'Teilprojekte.csv' }
-            }
-        },*/
-        {
-            title: 'Bearbeiten',
-            inGeneral: false,
-            type: 'primary',
-
-            description: 'Bearbeiten eines Seminarteilnehmers',
-            icon: 'far fa-edit',
-            iconOnly: true,
-            
-            visibleAt: ['Document'],
-
-            visibleBy: [ 'ADMIN', 'EMPLOYEE' ],
-            executeBy: [ 'ADMIN', 'EMPLOYEE' ],
-
-            onExecute: { 
-                redirect: '/consulting/teilprojekte/{{rowdoc._id}}'
-            }
-        },
-        {
-            title: 'Neue Aktivität',
-            inGeneral: false,
-            type: 'more',
-
-            description: 'Neuzugang einer weiteren Aktivität',
-            icon: 'fas fa-plus',
-            //iconOnly: true,
-            
-            visibleAt: ['Document'],
-
-            visibleBy: [ 'ADMIN', 'EMPLOYEE' ],
-            executeBy: [ 'ADMIN', 'EMPLOYEE' ],
-
-            onExecute: { 
-                redirect: '/consulting/aktivitaeten/new?tpId={{rowdoc._id}}'
-            }
-        },
-        /*{
-            title: 'Löschen',
-            type: 'secondary',
-            description: 'Löschen eines Seminarteilnehmers',
-            icon: 'fas fa-trash',
-            iconOnly: true,
-
-            visibleAt: ['Document'],
-
-            visibleBy: [ 'ADMIN', 'EMPLOYEE' ],
-            executeBy: [ 'ADMIN', 'EMPLOYEE' ],
-
-            onExecute: { 
-                // executes meteor method
-                runScript: (props) => {
-                    console.log('Run Script', props);
-                }
-            }
-        }*/
     ]
     
 })

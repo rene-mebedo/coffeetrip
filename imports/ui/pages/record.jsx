@@ -10,9 +10,12 @@ import Breadcrumb from 'antd/lib/breadcrumb';
 import Affix from 'antd/lib/affix';
 import Form from 'antd/lib/form';
 import message from 'antd/lib/message';
+import notification from 'antd/lib/notification';
 import Result from 'antd/lib/result';
 import Comment from 'antd/lib/comment';
 import Tooltip from 'antd/lib/tooltip';
+import Modal from 'antd/lib/modal';
+const { confirm } = Modal;
 
 import ShareAltOutlined from '@ant-design/icons/ShareAltOutlined';
 import EditOutlined from '@ant-design/icons/EditOutlined';
@@ -31,8 +34,9 @@ import { useApp, useDocument, useDocumentLock, useProduct } from '/client/client
 import moment from 'moment';
 import localization from 'moment/locale/de';
 import { useOnceWhen, useWhenChanged } from '/imports/api/lib/react-hooks';
-import { EnumMethodResult } from '/imports/api/consts';
+import { EnumDocumentModes, EnumMethodResult } from '/imports/api/consts';
 import { Expert } from '../components/expert';
+import { isFunction } from '/imports/api/lib/basics';
 
 export const Record = ({ params, queryParams, currentUser, mode }) => {
     const { productId, appId, docId } = params;
@@ -178,9 +182,6 @@ export const Record = ({ params, queryParams, currentUser, mode }) => {
         />
     }
 
-    // aktuell wird nur das default-layout unterstützt
-    //const layout = mod.layouts && mod.layouts.default;
-    
     const saveRecord = e => {
         recordForm.validateFields().then( values => {
             const data = {
@@ -209,14 +210,8 @@ export const Record = ({ params, queryParams, currentUser, mode }) => {
                 }
             });
             
-            const methodeName = recordMode === 'NEW' ? 'insertDocument' : 'updateDocument';
-
-            if (recordMode === 'EDIT') {
-                data.docId = docId;
-            }
-            
-            Meteor.call('__app.' + appId + '.' + methodeName, data, (err, res) => {
-                console.log('Update', err, res);
+            const meteorCallback = (err, res) => {
+                //console.log('Update', err, res);
                 
                 if (err) {
                     return message.error('Es ist ein unbekannter Systemfehler aufgetreten. Bitte wenden Sie sich an den Systemadministrator.' + err.message);
@@ -267,7 +262,17 @@ export const Record = ({ params, queryParams, currentUser, mode }) => {
                         }
                     });
                 }
-            });
+            };
+            
+            const methodeName = recordMode === 'NEW' ? 'insertDocument' : 'updateDocument';
+            let args = [ ];
+
+            if (recordMode === 'EDIT') {
+                args.push(docId);
+            }
+            args.push(data.values);
+
+            Meteor.apply('__app.' + appId + '.' + methodeName, args, meteorCallback);
 
         }).catch(errorInfo => {
             console.log(errorInfo)
@@ -312,6 +317,36 @@ export const Record = ({ params, queryParams, currentUser, mode }) => {
         }
     }
 
+    /**
+     * Standard implementation of removing the current document
+     */
+    const removeRecord = () => {
+        confirm({
+            title: app.namesAndMessages.singular.ohneArtikel + ' löschen?',
+            content: <div>Das Löschen von <b>{document.title}</b> kann nicht rückgängig gemacht werden!</div>,
+            okText: 'Löschen',
+            cancelText: 'Abbruch',
+            onOk() {
+                Meteor.call(`__app.${appId}.removeDocument`, document._id, (err, res) => {
+                    if (err) {
+                        console.error('Fehler beim Löschen des Dokuments aufgetreten.');
+                        console.log(err);
+                        return message.error('Es ist ein unbekannter Fehler aufgetreten.');
+                    }
+                    if (res.status == EnumMethodResult.STATUS_OKAY) {
+                        message.success(app.namesAndMessages.singular.mitArtikel + ' wurde erfolgreich gelöscht.');
+                        return FlowRouter.go(`/${productId}/${appId}/dashboard`);
+                    }
+                    if (res.status == EnumMethodResult.STATUS_ABORT) {
+                        return message.warning(res.statusText);
+                    }
+                    
+                    message.error('Es ist ein Fehler beim Löschen aufgetreten. ' + res.statusText);
+                });
+            }
+        });
+    }
+
     const shareRecord = () => {
         console.log('share clicked');
     }
@@ -323,17 +358,11 @@ export const Record = ({ params, queryParams, currentUser, mode }) => {
     let pageButtons = null;
     if (recordMode === 'NEW' || recordMode === 'EDIT') {
         pageButtons = [
-            <Button key="cancelEdit" onClick={cancelRecord}>Abbruch</Button>,
-            <Button key="save" type="primary" onClick={saveRecord}>Speichern</Button>,
+            <Button key="cancelEdit" className="mbac-app-action-cancel" onClick={cancelRecord}>Abbruch</Button>,
+            <Button key="save" type="primary" className="mbac-app-action-save" onClick={saveRecord}>Speichern</Button>,
         ]
-    } else if ( recordMode === 'SHOW') {
+    } else if ( recordMode === 'SHOW') {        
         if (lock) {
-            /*pageButtons = [
-                <div key="locked" style={{marginTop:16}}>
-                    <Tag icon={<StopOutlined />} color="error">gesperrt</Tag>
-                    {lock.lockedBy.firstName + ' ' + lock.lockedBy.lastName}
-                </div>                
-            ];*/
             pageButtons = [
                 <Comment key="locked"
                     author={lock.lockedBy.firstName + ' ' + lock.lockedBy.lastName}
@@ -349,9 +378,86 @@ export const Record = ({ params, queryParams, currentUser, mode }) => {
                 />
             ];
         } else {
-            pageButtons = [
-                <Button key="edit" type="dashed" icon={<EditOutlined />} onClick={editRecord}>Bearbeiten</Button>,
-            ];
+            const executeAction = action => {
+                const { redirect, force, runScript } = action.onExecute;
+
+                if (redirect) FlowRouter.go(redirect);
+                if (force && force == 'new') FlowRouter.go(`/${productId}/${appId}/new`);
+                if (force && force == 'edit') editRecord();
+                if (force && force == 'remove') removeRecord();
+                    
+                
+                if (runScript) {
+                    try {
+                        const script = eval(runScript);
+
+                        script(document, {
+                            confirm,
+                            message,
+                            notification,
+                            invoke: (name, ...args) => {
+                                let callback = (_error, _result) => {};
+                                if (args && isFunction(args[args.length-1])) {
+                                    callback = args.pop()
+                                }
+                                Meteor.apply('__app.' + name, args, callback);
+                            }
+                        });
+
+                    } catch(err) {
+                        message.error('Es ist ein unbekannter Fehler aufgetreten. Bitte wenden Sie sich an den Administrator.')
+                        console.log(err)
+                    }
+                }
+            }
+
+            let moreActions = [];
+            let documentActions = Object.values(app.actions).filter( action => action.environment.find( env => env == 'Document' ));
+
+            documentActions = documentActions.map( action => {
+                const { visible } = action;
+
+                if (visible) {
+                    try {
+                        action.visible = eval(visible);
+                        // test visibility
+                    } catch(err) {
+                        console.log('Fehler beim evaluieren der visibility für eine AppAction', err);
+                    }
+                } else {
+                    action.visible = () => true;
+                }
+
+                return action;
+            }).filter(action => {
+                try {
+                    return action.visible({ environment:'Document', document })                    
+                } catch(err) {
+                    console.error('Fehler beim Prüfen der Sichtbarkeit der AppAction', action.title);
+                    console.log(err);
+                    return false
+                }
+            });
+
+            pageButtons = documentActions.map( (action, index) => {
+                const { icon, title, isPrimaryAction, style, className, visible } = action;
+
+                let buttonType = 'dashed';
+                if (isPrimaryAction) buttonType = 'primary';
+
+                return (
+                    <Button
+                        key={index}
+                        type={buttonType}
+                        className={className}
+                        style={style}
+                        onClick={()=>executeAction(action)}
+                    >
+                        { icon ? <i className={icon} style={{marginRight:8}} /> : null }
+                        {action.title}
+                    </Button>
+                );
+            });
         }
     } else {
         pageButtons = [];
@@ -379,36 +485,29 @@ export const Record = ({ params, queryParams, currentUser, mode }) => {
         <Fragment>
             <Breadcrumb>
                 <Breadcrumb.Item>
-                    <a href="">Home</a>
+                    <a href="/">Start</a>
                 </Breadcrumb.Item>
                 <Breadcrumb.Item>
-                    <a href="">Dashboards</a>
+                    {product.title}
                 </Breadcrumb.Item>
                 <Breadcrumb.Item>
-                    <a href={"/dashboards/" + product._id}>{product.title}</a>
+                    <a href={`/${productId}/${appId}/dashboard`}>{app.title}</a>
                 </Breadcrumb.Item>
                 <Breadcrumb.Item>
-                    {app.title}
+                    { mode == EnumDocumentModes.NEW ? 'Neuzugang' : document.title }
                 </Breadcrumb.Item>
             </Breadcrumb>
 
             <Affix className="mbac-affix-style-bottom" offsetTop={66}>
                 <PageHeader
-                    title={<span><i className={app.icon} style={{fontSize:32, marginRight:16 }}/>{recordMode !== 'NEW' ? document && document.title : ''}</span>}
-                    subTitle={
+                    title={
+                        <span><i className={app.icon} style={{fontSize:32, marginRight:16 }}/>{recordMode !== 'NEW' ? document && document.title : 'Neuzugang'}</span>
+                    }
+                    subTitle={ recordMode === 'NEW' ? undefined :
                         <MediaQuery showAtTablet showAtDesktop >
                             <span style={{marginTop:8, display:'flex'}}>{recordMode === 'NEW' ? 'Neuzugang' : null} {`(${app.namesAndMessages.singular.ohneArtikel})`}</span>
                         </MediaQuery>
                     }
-                    /*tags={
-                        <MediaQuery showAtTablet showAtDesktop >
-                            {
-                                recordMode === 'NEW' 
-                                    ? <Tag color="orange" style={{marginTop:8, display:'flex'}}>nicht gespeichert</Tag>
-                                    : <Tag color="green" style={{marginTop:8, display:'flex'}}>{record && record._id}</Tag>
-                            }
-                        </MediaQuery>
-                    }*/
                     extra={pageButtons}
                     style={{borderBottom:'2px solid #e1e1e1', marginBottom:16}}
                 />
@@ -435,6 +534,8 @@ export const Record = ({ params, queryParams, currentUser, mode }) => {
                     mode={recordMode}
                     
                     onValuesChange={registerValuesChangeHook}
+
+                    currentUser={currentUser}
                 />
             </Form>
         </Fragment>

@@ -10,6 +10,7 @@ import { MebedoWorld } from "../../mebedo-world";
 import { getAppStore } from "/imports/api/lib/core";
 
 import { JaNeinEnum, JaNeinOptionen } from "../../allgemein/apps/ja-nein-optionen";
+import { DefaultAppActions } from "../../defaults";
 
 export interface Mandant extends IGenericApp {
     /**
@@ -321,17 +322,7 @@ export const Mandanten = Konfiguration.createApp<Mandant>('mandanten', {
     },
 
     actions: {
-        neu: {
-            isPrimaryAction: true,
-
-            description: 'Neuzugang eines Mandanten',
-            icon: 'fas fa-plus',
-            
-            visibleBy: [ 'ADMIN' ],
-            executeBy: [ 'ADMIN' ],
-
-            onExecute: { redirect: '/allgemein/mandanten/new' }
-        },
+        ...DefaultAppActions.newDocument(['ADMIN'])
     },
 
     methods: {
@@ -353,9 +344,7 @@ export const Mandanten = Konfiguration.createApp<Mandant>('mandanten', {
 });
 
 
-export const ReportMandantenAll = MebedoWorld.createReport<Mandant, never>('mandanten-all', {
-    type: 'table',
-    
+export const ReportMandantenAll = MebedoWorld.createReport<Mandant, never>('mandanten-all', {   
     title: 'Alle Mandanten',
     description: 'Zeigt alle Mandanten.',
 
@@ -371,34 +360,41 @@ export const ReportMandantenAll = MebedoWorld.createReport<Mandant, never>('mand
     liveDatasource: ({ isServer, publication, currentUser }) => {
         if (isServer && !currentUser) return publication?.ready();
         
-        const Mandanten = getAppStore('mandanten');
-        return Mandanten.find({}, { sort: { title: 1 } });
+        let appStore = isServer ? Mandanten: getAppStore('mandanten');
+        return appStore.find({}, { sort: { title: 1 } });
     },
 
-    columns: [
-        {
-            title: 'Mandant',
-            key: 'title',
-            dataIndex: 'title',
-
-        },
-        {
-            title: 'Beschreibung',
-            key: 'description',
-            dataIndex: 'description',
-        },
-        {
-            title: 'Unternehmen',
-            key: 'firma',
-            dataIndex: 'firma',
-            render: (firma, doc) => <div>
-                <strong>{firma}</strong><br/>
-                {doc.strasse}<br/>
-                <br/>
-                {doc.plz} {doc.ort}
-            </div>
-        },
-    ],
+    type: 'table',
+    tableDetails: {
+        columns: [
+            {
+                title: 'Mandant',
+                key: 'title',
+                dataIndex: 'title',
+    
+            },
+            {
+                title: 'Beschreibung',
+                key: 'description',
+                dataIndex: 'description',
+            },
+            {
+                title: 'Unternehmen',
+                key: 'firma',
+                dataIndex: 'firma',
+                render: (firma, doc) => {
+                    return (
+                        <div>
+                            <strong>{firma}</strong><br/>
+                            {doc.strasse}<br/>
+                            <br/>
+                            {doc.plz} {doc.ort}
+                        </div>
+                    );
+                }
+            },
+        ],    
+    },
 
     actions: [
         {
@@ -439,7 +435,7 @@ export const ReportMandantenAll = MebedoWorld.createReport<Mandant, never>('mand
                         title: `Möchten Sie den Mandanten wirklich löschen?`,
                         content: <div>Das Löschen des Mandanten <b>{row.title}</b> kann nicht rückgängig gemacht werden!</div>,
                         onOk() {
-                            invoke('mandanten.removeDocument', { productId: 'konfiguration', appId: 'mandanten', docId: row._id }, (err: any, res: IGenericRemoveResult) => {
+                            invoke('mandanten.removeDocument', row._id, (err: any, res: IGenericRemoveResult) => {
                                 if (err) {
                                     console.log(err);
                                     return message.error('Es ist ein unbekannter Fehler aufgetreten.');

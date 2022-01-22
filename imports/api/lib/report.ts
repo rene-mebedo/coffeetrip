@@ -1,5 +1,5 @@
 import { World } from "./world";
-import { IReport, IReportAction } from "../types/world";
+import { IReportAction, TReport } from "../types/world";
 import { deepClone, isFunction } from "./basics";
 import { Meteor, Subscription } from "meteor/meteor";
 import { ReportSchema } from "./schemas";
@@ -7,11 +7,11 @@ import { ReportSchema } from "./schemas";
 
 export class Report {
     private world: World
-    private _originalReportDef: IReport<any, any>
-    private _report: IReport<any, any> | null = null;
+    private _originalReportDef: TReport<any, any>
+    private _report: TReport<any, any> | null = null;
     private _reportId: string | null = null;
 
-    constructor(world: World, reportDef: IReport<any, any>) {
+    constructor(world: World, reportDef: TReport<any, any>) {
         this.world = world;
 
         this._originalReportDef = deepClone(reportDef);
@@ -23,31 +23,41 @@ export class Report {
         return this._reportId || '';
     }
 
-    get report(): IReport<any, any> | null {
+    get report(): TReport<any, any> | null {
         return this._report;
     }
 
-    get originalReportDef(): IReport<any, any> | null {
+    get originalReportDef(): TReport<any, any> | null {
         return this._originalReportDef;
     }
 
-    private registerReport = (r: IReport<any, any>) => {
+    private registerReport = (r: TReport<any, any>) => {
         const reportId = r._id;
         console.log('Register Report', reportId);
         
         let report = r;
     
-        if (r.columns) {
-            r.columns = r.columns.map( col => {
-                if (col.render && isFunction(col.render)) col.render = col.render.toString()
-                if (col.children) {
-                    col.children = col.children.map( cchi => {
-                        if (cchi.render && isFunction(cchi.render)) cchi.render = cchi.render.toString()
-                        return cchi;
-                    })
-                }
-                return col;
-            });
+        if (r.type == "table"){
+            if (r.tableDetails && r.tableDetails.columns) {
+                r.tableDetails.columns = r.tableDetails.columns.map( col => {
+                    if (col.render && isFunction(col.render)) col.render = col.render.toString()
+                    if (col.children) {
+                        col.children = col.children.map( cchi => {
+                            if (cchi.render && isFunction(cchi.render)) cchi.render = cchi.render.toString()
+                            return cchi;
+                        })
+                    }
+                    return col;
+                });
+            }
+        } else if(r.type == 'card') {
+            if (r.cardDetails && r.cardDetails.avatar && isFunction(r.cardDetails.avatar)) r.cardDetails.avatar = r.cardDetails.avatar.toString() as any;
+            if (r.cardDetails && r.cardDetails.title && isFunction(r.cardDetails.title)) r.cardDetails.title = r.cardDetails.title.toString() as any;
+            if (r.cardDetails && r.cardDetails.description && isFunction(r.cardDetails.description)) r.cardDetails.description = r.cardDetails.description.toString() as any;
+            if (r.cardDetails && r.cardDetails.cover && isFunction(r.cardDetails.cover)) r.cardDetails.cover = r.cardDetails.cover.toString() as any;
+        } else if (r.type == 'chart') {
+            // only chart-type available
+
         }
     
         if (r.actions) {
@@ -116,8 +126,8 @@ export class Report {
             process.exit(1);
         }
 
-        this._reportId = this.world.reportCollection.insert(report);
-        this._report = r; 
+        this._reportId = this.world.reportCollection.insert(r);
+        this._report = r;
     
         console.log(`done. (register Report ${reportId})`);
     }

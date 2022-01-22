@@ -5,7 +5,7 @@ import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api
 
 import { Konfiguration } from '/server/app/konfiguration';
 
-import { AppData, IGenericApp, IGenericRemoveResult, TOptionValues } from "/imports/api/types/app-types";
+import { AppData, IGenericApp, TOptionValues } from "/imports/api/types/app-types";
 import { MebedoWorld } from "../../mebedo-world";
 import { getAppStore } from "/imports/api/lib/core";
 
@@ -13,6 +13,7 @@ import Tag from 'antd/lib/tag';
 import { JaNeinEnum, JaNeinOptionen } from "../../allgemein/apps/ja-nein-optionen";
 import { Adressen } from "../../allgemein/apps/adressen";
 import { Projekte } from "../../consulting/apps/projekte";
+import { DefaultAppActions, DefaultReportActions } from "../../defaults";
 
 export interface Preisliste extends IGenericApp {
     /**
@@ -132,17 +133,8 @@ export const Preislisten = Konfiguration.createApp<Preisliste>('preislisten', {
     },
 
     actions: {
-        neu: {
-            isPrimaryAction: true,
-
-            description: 'Neuzugang einer Preisliste',
-            icon: 'fas fa-plus',
-            
-            visibleBy: [ 'ADMIN' ],
-            executeBy: [ 'ADMIN' ],
-
-            onExecute: { redirect: '/konfiguration/preislisten/new' }
-        },
+        ...DefaultAppActions.newDocument(['ADMIN']),
+        ...DefaultAppActions.editDocument(['ADMIN'])
     },
 
     methods: {
@@ -195,123 +187,64 @@ export const Preislisten = Konfiguration.createApp<Preisliste>('preislisten', {
 });
 
 
-export const ReportPreislistenAll = MebedoWorld.createReport<Preisliste, never>('preislisten-all', {
-    type: 'table',
-    
+export const ReportPreislistenAll = MebedoWorld.createReport<Preisliste, never>('preislisten-all', {  
     title: 'Alle Preislisten',
     description: 'Zeigt alle Preislisten.',
 
-    /*sharedWith: [],
-    sharedWithRoles: ['EVERYBODY'],*/
-
     isStatic: false,
+    liveDatasource: ({ isServer, publication, currentUser }) => {
+        if (isServer && !currentUser) return publication?.ready();
+        
+        let appStore = isServer ? Preislisten : getAppStore('preislisten');
+        return appStore.find({}, { sort: { title: 1 } });
+    },
+
+    type: 'table',
+    tableDetails: {
+        columns: [
+            {
+                title: 'Preisliste',
+                key: 'title',
+                dataIndex: 'title',
+
+            },
+            {
+                title: 'Gültigkeit',
+                key: 'gueltigkeit',
+                dataIndex: 'gueltigkeit',
+                render: (gueltigkeit: Array<Date>, _preisliste: AppData<Preisliste>, { moment }) => {
+                    return `${moment(gueltigkeit[0]).format('DD.MM.YYYY')} bis ${moment(gueltigkeit[1]).format('DD.MM.YYYY')}`;
+                }
+            },
+            {
+                title: 'Status',
+                key: 'active',
+                dataIndex: 'active',
+                align: 'center',
+                render: (active: string, preisliste: AppData<Preisliste>, { injectables }) => {
+                    const { JaNeinOptionen }: { JaNeinOptionen: TOptionValues<JaNeinEnum> } = injectables as any;
+                    
+                    const a = JaNeinOptionen.find( jn => jn._id === active );
+                    if (!a) return <Tag color='grey'>{`!!${active}!!`}</Tag>
+                    
+                    return (
+                        <div>
+                            <Tag style={{color: a.color as string, backgroundColor: a.backgroundColor as string}}>{ a._id == 'ja' ? 'Aktiv': 'Inaktiv' }</Tag>
+                            { preisliste.isStandard == 'ja' ? <Tag color='volcano'>Standard</Tag> : null }
+                        </div>
+                    )
+                }
+            },
+
+        ],
+    },
 
     injectables: {
         JaNeinOptionen, janein: JaNeinEnum
     },
 
-    liveDatasource: ({ isServer, publication, currentUser }) => {
-        if (isServer && !currentUser) return publication?.ready();
-        
-        const Preislisten = getAppStore('preislisten');
-        return Preislisten.find({}, { sort: { title: 1 } });
-    },
-
-    columns: [
-        {
-            title: 'Preisliste',
-            key: 'title',
-            dataIndex: 'title',
-
-        },
-        {
-            title: 'Gültigkeit',
-            key: 'gueltigkeit',
-            dataIndex: 'gueltigkeit',
-            render: (gueltigkeit: Array<Date>, _preisliste: AppData<Preisliste>, { moment }) => {
-                return `${moment(gueltigkeit[0]).format('DD.MM.YYYY')} bis ${moment(gueltigkeit[1]).format('DD.MM.YYYY')}`;
-            }
-        },
-        {
-            title: 'Status',
-            key: 'active',
-            dataIndex: 'active',
-            align: 'center',
-            render: (active: string, preisliste: AppData<Preisliste>, { injectables }) => {
-                const { JaNeinOptionen }: { JaNeinOptionen: TOptionValues<JaNeinEnum> } = injectables as any;
-                
-                const a = JaNeinOptionen.find( jn => jn._id === active );
-                if (!a) return <Tag color='grey'>{`!!${active}!!`}</Tag>
-                
-                return (
-                    <div>
-                        <Tag style={{color: a.color as string, backgroundColor: a.backgroundColor as string}}>{ a._id == 'ja' ? 'Aktiv': 'Inaktiv' }</Tag>
-                        { preisliste.isStandard == 'ja' ? <Tag color='volcano'>Standard</Tag> : null }
-                    </div>
-                )
-            }
-        },
-
-    ],
-
     actions: [
-        {
-            title: 'Bearbeiten',
-            inGeneral: false,
-            type: 'primary',
-
-            description: 'Bearbeiten einer Preisliste',
-            icon: 'far fa-edit',
-            iconOnly: true,
-            
-            visibleAt: ['ReportPage', 'Dashboard'],
-
-            visibleBy: [ 'ADMIN' ],
-            executeBy: [ 'ADMIN' ],
-
-            onExecute: { 
-                redirect: '/konfiguration/preislisten/{{rowdoc._id}}'
-            }
-        },
-        {
-            title: 'Löschen',
-            type: 'secondary',
-            description: 'Löschen eines Seminarteilnehmers',
-            icon: 'fas fa-trash',
-            iconOnly: true,
-
-            visibleAt: ['ReportPage', 'Dashboard'],
-
-            visibleBy: [ 'ADMIN' ],
-            executeBy: [ 'ADMIN' ],
-
-            onExecute: { 
-                runScript: ({ row, document: _doc }, tools ) => {
-                    const { confirm, message, invoke } = tools;
-
-                    confirm({
-                        title: `Möchten Sie die Preisliste wirklich löschen?`,
-                        //icon: <ExclamationCircleOutlined />,
-                        content: <div>Das Löschen der Preisliste <b>{row.title}</b> kann nicht rückgängig gemacht werden!</div>,
-                        onOk() {
-                            invoke('preislisten.removeDocument', { productId: 'konfiguration', appId: 'preislisten', docId: row._id }, (err: any, res: IGenericRemoveResult) => {
-                                if (err) {
-                                    console.log(err);
-                                    return message.error('Es ist ein unbekannter Fehler aufgetreten.');
-                                }
-                                if (res.status == EnumMethodResult.STATUS_OKAY) {
-                                    return message.success('Die Preisliste wurde erfolgreich gelöscht');
-                                }
-                                if (res.status == EnumMethodResult.STATUS_ABORT) {
-                                    return message.warning(res.statusText);
-                                }
-                                
-                                message.error('Es ist ein Fehler beim Löschen aufgetreten. ' + res.statusText);
-                            });
-                        }
-                    });
-                }
-            }
-        },
+        DefaultReportActions.editDocument(['ADMIN'], Preislisten),
+        DefaultReportActions.removeDocument(['ADMIN'], Preislisten),
     ]
 });

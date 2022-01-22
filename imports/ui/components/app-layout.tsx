@@ -19,6 +19,7 @@ import { InlineCombination, Spacer } from './layout-controls/inline-combination'
 import { IMethodOnValuesChange } from './layout-controls/generic-control-wrapper';
 import { IGenericDocument } from '/imports/api/lib/core';
 import { IWorldUser } from '/imports/api/types/world';
+import { SliderInput } from './layout-controls/slider';
 
 export const getLabel = (elem: TAppLayoutElement<any>, fields: TAppFields<any>): string => {
     if (elem.noTitle) return '';
@@ -56,6 +57,7 @@ export const LayoutElements = (props:IAppLayoutElementProps): JSX.Element => {
                 if (elem.controlType === EnumControltypes.ctDatespanInput ) return <DatespanInput {...props} key={key} elem={elem} />
                 if (elem.controlType === EnumControltypes.ctTimespanInput) return <TimespanInput {...props} key={key} elem={elem} />
                 if (elem.controlType === EnumControltypes.ctYearInput ) return <YearInput {...props} key={key} elem={elem} />
+                if (elem.controlType === EnumControltypes.ctSlider ) return <SliderInput {...props} key={key} elem={elem} />
 
                 if (elem.controlType === EnumControltypes.ctCollapsible ) return <Collapsible {...props} key={key} elem={elem} />
                 if (elem.controlType === EnumControltypes.ctDivider ) return <DividerControl {...props} key={key} elem={elem} />
@@ -86,7 +88,10 @@ export interface IAppLayoutProps {
 }
 
 export const AppLayout = ({ app, defaults, document, /*layoutName = 'default',*/ mode, onValuesChange, currentUser }:IAppLayoutProps) => {
-    const layoutName = 'default';
+    let layoutName = 'default';
+    //console.log('AppLayout', currentUser)
+    if (currentUser._id == 'f57sj45PPXjpPpEk6') layoutName = 'extern';
+
     // TODO: Unterstützung anderer Layouttypen
     // aktuell wird nur das default-layout unterstützt
     const layout = app.layouts && (app.layouts[layoutName] || app.layouts.default);

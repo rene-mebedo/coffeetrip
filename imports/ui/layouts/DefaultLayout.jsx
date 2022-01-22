@@ -53,7 +53,7 @@ const ProductsMenu = ({theme='light', mode, displayLogo}) => {
     }
 
     if (status == EnumMethodResult.STATUS_LOADING) return <Spin />
-
+    
     return (
         <Menu theme={theme} mode={mode} onClick={handleClick}>
             { !displayLogo ? null :

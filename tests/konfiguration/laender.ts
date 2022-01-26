@@ -30,7 +30,7 @@ describe('konfiguration/laender', function () {
 
     describe('Abhängigkeit Land zu Ländern', function () {
         
-        before(async function() {
+        before(async function() { 
             // setup Ländergruppe
             lgInsertResult = await connection.call('__app.laendergruppen.insertDocument', {                
                 title: 'Testländergruppe',
@@ -84,7 +84,7 @@ describe('konfiguration/laender', function () {
         it('Löschen des Landes nimmt diese auch wieder aus der Ländergruppe raus', async function(){
             const removeLandResult2 = await connection.call('__app.laender.removeDocument', insertLandResult2.docId);
             assert.strictEqual(removeLandResult2.status, EnumMethodResult.STATUS_OKAY);
-
+            
             let lgAfterRemoveLand2 = await Laendergruppen.raw().findOne({ _id: lgInsertResult.docId });
             // jetzt darf nur noch 1 Land der Ländergruppe angehören
             assert.strictEqual(lgAfterRemoveLand2.laender.length, 1);

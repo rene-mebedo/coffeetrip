@@ -130,7 +130,6 @@ export const ProductSchema = new SimpleSchema({
 });
 ProductSchema.extend(SharedWithSchema);
 
-
 export const AppSchema = new SimpleSchema({
     productId: {
         type: String,
@@ -196,6 +195,10 @@ export const AppSchema = new SimpleSchema({
         type: Object,
         label: 'Aktionen',
         blackbox: true
+    },
+    layoutFilter: {
+        type: String,
+        optional: true
     },
     layouts: {
         type: Object,
@@ -350,7 +353,8 @@ export const AppFieldSchema = new SimpleSchema({
     autoValue: { // funktion, die den Wert errechnet für dieses Feld
         type: String,
         optional: true
-    }
+    },
+    
 });
 
 
@@ -468,6 +472,11 @@ export const AppLayoutElementsSchema = new SimpleSchema({
         optional: true
     },
     sliderDetails: {
+        type: Object,
+        blackbox: true,
+        optional: true
+    },
+    style: {
         type: Object,
         blackbox: true,
         optional: true

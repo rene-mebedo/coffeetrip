@@ -1,7 +1,7 @@
 import { FieldNamesAndMessages } from "/imports/api/lib/helpers";
-import { defaultSecurityLevel } from "../../security";
+import { defaultSecurityLevel, RolesEnum } from "../../security";
 
-import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
+import { EnumControltypes, EnumFieldTypes } from "/imports/api/consts";
 
 import { AppData, IGenericApp, TAppLink, UpdateableAppData } from "/imports/api/types/app-types";
 import { MebedoWorld } from "../../mebedo-world";
@@ -12,6 +12,7 @@ import { Laendergruppe, Laendergruppen } from "./laendergruppen";
 import { Adressen } from "../../allgemein/apps/adressen";
 import { Projekte } from "../../consulting/apps/projekte";
 import { DefaultAppActions, DefaultAppFields, DefaultReportActions } from "../../defaults";
+import { AppRuleError } from "/imports/api/lib/error";
 
 export interface Land extends IGenericApp {
     /**
@@ -40,10 +41,10 @@ export interface Land extends IGenericApp {
 }
 
 export const enum LaenderErrorEnum {
-    LAENDERGRUPPE_NOT_FOUND,
-    REF_EXISTS_TO_ADRESSE,
-    REF_EXISTS_TO_PROJECT_Rechnungsland,
-    REF_EXISTS_TO_PROJECT_Leistungsland
+    LAENDERGRUPPE_NOT_FOUND = "LAENDERGRUPPE_NOT_FOUND",
+    REF_EXISTS_TO_ADRESSE = "REF_EXISTS_TO_ADRESSE",
+    REF_EXISTS_TO_PROJECT_Rechnungsland = "REF_EXISTS_TO_PROJECT_Rechnungsland,",
+    REF_EXISTS_TO_PROJECT_Leistungsland = "REF_EXISTS_TO_PROJECT_Leistungsland"
 }
 
 export const Laender = Konfiguration.createApp<Land>('laender', {
@@ -136,96 +137,7 @@ export const Laender = Konfiguration.createApp<Land>('laender', {
         ...DefaultAppActions.removeDocument(['ADMIN']),
     },
 
-    methods: {
-        onAfterInsert: async function(_id, NEW, { currentValue, session }) {
-            // mit dem Hinzufügen eines neuen Landes muss die Referenz des Landes auch
-            // direkt innerhalb der Ländergruppe geführt sein.
-            const laendergruppe: AppData<Laendergruppe> = await Laendergruppen.raw().findOne({_id: NEW.laendergruppe[0]._id}, { session });
-            if (!laendergruppe) {
-                return { status: EnumMethodResult.STATUS_ABORT, errCode: LaenderErrorEnum.LAENDERGRUPPE_NOT_FOUND, statusText: `Die Ländergruppe "${NEW.laendergruppe[0].title}" könnte in Ihrer Beschreibung nicht gefunden werden.` }
-            }
-
-            let lgData: UpdateableAppData<Laendergruppe> = {};
-            lgData.laender = laendergruppe.laender || [];
-            lgData.laender.push({
-                _id,
-                title: currentValue('title'),
-                description: currentValue('description'),
-                imageUrl: currentValue('imageUrl'),
-                link: '/konfiguration/laender/' + _id
-            });
-
-            await Laendergruppen.updateOne(NEW.laendergruppe[0]._id, { ...lgData }, { session } );
-
-            return { status: EnumMethodResult.STATUS_OKAY }
-        },
-
-        onAfterUpdate: async function(_id, NEW, OLD, { hasChanged, currentValue, session }) {
-            // wurde die Ländergruppe geändert, so muss
-            // die Liste der Länder innerhalb dieser Gruppe aktualisiert werden
-            if (hasChanged('laendergruppe')) {
-                // Ländereintrag aus der alten Ländergruppe entfernen
-                const laendergruppeOld: AppData<Laendergruppe> = await Laendergruppen.raw().findOne({_id: OLD.laendergruppe[0]._id}, { session });
-                if (!laendergruppeOld) {
-                    return { status: EnumMethodResult.STATUS_ABORT, errCode: LaenderErrorEnum.LAENDERGRUPPE_NOT_FOUND, statusText: `Die Ländergruppe "${OLD.laendergruppe[0].title}" könnte in Ihrer Beschreibung nicht gefunden werden.` }
-                }
-                let lgDataOld: UpdateableAppData<Laendergruppe> = {};
-                lgDataOld.laender = (laendergruppeOld.laender || []).filter( land => {
-                    return land._id != _id 
-                });
-                await Laendergruppen.updateOne(laendergruppeOld._id, { ...lgDataOld }, { session } );
-
-                // ist eine neue Ländergruppe gesetzt worden?
-                if (NEW.laendergruppe && NEW.laendergruppe[0]) {
-                    // Land der neuen Ländergruppe anfügen
-                    const laendergruppe: AppData<Laendergruppe> = await Laendergruppen.raw().findOne({_id: NEW.laendergruppe[0]._id}, { session });
-                    if (!laendergruppe) {
-                        return { status: EnumMethodResult.STATUS_ABORT, errCode: LaenderErrorEnum.LAENDERGRUPPE_NOT_FOUND, statusText: `Die Ländergruppe "${NEW.laendergruppe[0].title}" könnte in Ihrer Beschreibung nicht gefunden werden.` }
-                    }
-                    let lgData: UpdateableAppData<Laendergruppe> = {};
-                    lgData.laender = laendergruppe.laender || [];
-                    lgData.laender.push({
-                        _id,
-                        title: currentValue('title'),
-                        description: currentValue('description'),
-                        imageUrl: currentValue('imageUrl'),
-                        link: '/konfiguration/laender/' + _id
-                    });
-                    await Laendergruppen.updateOne(laendergruppe._id, { ...lgData }, { session } );
-                }
-            }
-
-            return { status: EnumMethodResult.STATUS_OKAY }
-        },
-
-        onAfterRemove: async function(OLD, { session }) {
-            // prüfen ob das Land einer Ländergruppe zugeordnet war
-            if (OLD.laendergruppe && OLD.laendergruppe.length > 0) {
-                // Ländereintrag aus der alten Ländergruppe entfernen
-                const lgId = OLD.laendergruppe[0]._id;
-                const laendergruppeOld: AppData<Laendergruppe>  = await Laendergruppen.raw().findOne({_id: lgId}, { session });
-                if (!laendergruppeOld) {
-                    return { status: EnumMethodResult.STATUS_ABORT, errCode: LaenderErrorEnum.LAENDERGRUPPE_NOT_FOUND, statusText: `Die Ländergruppe "${OLD.laendergruppe[0].title}" konnte in Ihrer Beschreibung nicht gefunden werden.` }
-                }
-                let lgData: UpdateableAppData<Laendergruppe> = {};
-                lgData.laender = laendergruppeOld.laender.filter( land => land._id != OLD._id );
-                await Laendergruppen.updateOne(lgId, lgData, { session } );
-            }
-            
-            if (await Adressen.raw().findOne({'land._id': OLD._id})) {
-                return { status: EnumMethodResult.STATUS_ABORT, errCode: LaenderErrorEnum.REF_EXISTS_TO_ADRESSE, statusText: `Das Land konnte nicht gelöscht werden, da es noch in einer oder mehrerer Adressen referenziert wird.` }
-            }
-
-            if (await Projekte.raw().findOne({'rechnungLand._id': OLD._id})) {
-                return { status: EnumMethodResult.STATUS_ABORT, errCode: LaenderErrorEnum.REF_EXISTS_TO_PROJECT_Rechnungsland, statusText: `Das Land konnte nicht gelöscht werden, da es noch in einer oder mehrerer Projekte als Rechnungsland referenziert wird.` }
-            }
-
-            if (await Projekte.raw().findOne({'leistungsland._id': OLD._id})) {
-                return { status: EnumMethodResult.STATUS_ABORT, errCode: LaenderErrorEnum.REF_EXISTS_TO_PROJECT_Leistungsland, statusText: `Das Land konnte nicht gelöscht werden, da es noch in einer oder mehrerer Projekte als Leistungsland referenziert wird.` }
-            }
-            return { status: EnumMethodResult.STATUS_OKAY }
-        }
-    },
+    methods: {},
 
     dashboardPicker: () => 'default',
 
@@ -243,6 +155,100 @@ export const Laender = Konfiguration.createApp<Land>('laender', {
 });
 
 
+const ALWAYS = true;
+
+Laender.addRule('share-with-everybody', {
+    title: 'Land teilen',
+    description: 'Jedes neue Land ist mit Jedermann im System zu teilen.',
+
+    on: 'beforeInsert',
+    when: ALWAYS,
+    then: async ({ NEW }) => {
+        if (!NEW) return;
+        NEW.sharedWithRoles = [ RolesEnum.EVERYBODY ];
+    }
+});
+
+Laender.addRule('remove-land-from-laendergruppe', {
+    title: 'Land aus Ländergruppe entfernen',
+    description: 'Ändert sich die Ländergruppe, so muss das zuvor eingetragene Land aus der Ländergruppe entfernt werden. Dies gilt auch in dem Falle, dass das Land gelöscht wird.',
+
+    on: [ 'afterUpdate', 'afterRemove' ],
+    when: async ({ triggerTiming, hasChanged }) => hasChanged('laendergruppe') || triggerTiming == 'afterRemove',
+    then: async ({ _id: landId, OLD, session }) => {   
+        const lg = OLD?.laendergruppe[0];
+        const laendergruppeOld: AppData<Laendergruppe> = await Laendergruppen.raw().findOne({ _id: lg?._id }, { session });
+        
+        if (!laendergruppeOld) {
+            throw new AppRuleError({
+                name: LaenderErrorEnum.LAENDERGRUPPE_NOT_FOUND,
+                message: `Die Ländergruppe "${lg?.title}" konnte in Ihrer Beschreibung nicht gefunden werden.`
+            });
+        }
+        let lgDataOld: UpdateableAppData<Laendergruppe> = {};
+        lgDataOld.laender = (laendergruppeOld.laender || []).filter( land => land._id != landId );
+        
+        await Laendergruppen.updateOne(laendergruppeOld._id, { ...lgDataOld }, { session } );
+    }
+});
+
+Laender.addRule('add-land-to-laendergruppe', {
+    title: 'Land zur Ländergruppe hinzufügen',
+    description: 'Das Land wird automatisch der hinterlegten Ländergruppe zugeordnet, so dass die Ländergruppe jeweils über alle Länder verfügt, die Ihr angehören.',
+
+    on: ['afterInsert', 'afterUpdate'], 
+    when: async ({ hasChanged }) => hasChanged('laendergruppe'),
+    then: async ({_id: landId, currentValue, session }) => {
+        const lg = currentValue('laendergruppe')[0];
+        const laendergruppe: AppData<Laendergruppe> = await Laendergruppen.raw().findOne({_id: lg._id}, { session });
+        
+        if (!laendergruppe || !landId) {
+            throw new AppRuleError({
+                name: LaenderErrorEnum.LAENDERGRUPPE_NOT_FOUND, 
+                message: `Die Ländergruppe "${lg.title}" konnte in Ihrer Beschreibung nicht gefunden werden.`,
+            });
+        }
+
+        let lgData: UpdateableAppData<Laendergruppe> = {};
+        lgData.laender = laendergruppe.laender || [];
+
+        lgData.laender.push({
+            _id: landId,
+            title: currentValue('title'),
+            description: currentValue('description'),
+            imageUrl: currentValue('imageUrl'),
+            link: '/konfiguration/laender/' + landId
+        });
+        
+        await Laendergruppen.updateOne(laendergruppe._id, { ...lgData }, { session } );
+    }
+});
+
+Laender.addRule('remove-land-check-applinks', {
+    title: 'Referenzierungen prüfen',
+    description: 'Wird das Land gelöscht, so dürfen keine aktiven Referenzierungen mehr vorhanden sein.',
+
+    on: 'afterRemove',
+    when: ALWAYS,
+    then: async ({ _id }) => {
+        if (await Adressen.raw().findOne({'land._id': _id})) {
+            throw new AppRuleError({ name: LaenderErrorEnum.REF_EXISTS_TO_ADRESSE, message: `Das Land konnte nicht gelöscht werden, da es noch in einer oder mehrerer Adressen referenziert wird.` });
+        }
+
+        if (await Projekte.raw().findOne({'rechnungLand._id': _id})) {
+            throw new AppRuleError({ name: LaenderErrorEnum.REF_EXISTS_TO_PROJECT_Rechnungsland, message: `Das Land konnte nicht gelöscht werden, da es noch in einer oder mehrerer Projekte als Rechnungsland referenziert wird.` });
+        }
+
+        if (await Projekte.raw().findOne({'leistungsland._id': _id})) {
+            throw new AppRuleError( { name: LaenderErrorEnum.REF_EXISTS_TO_PROJECT_Leistungsland, message: `Das Land konnte nicht gelöscht werden, da es noch in einer oder mehrerer Projekte als Leistungsland referenziert wird.` });
+        }
+    }
+});
+
+
+/**
+ * Report zur Darstellung aller Länder im Dashboard
+ */
 export const ReportLaenderAll = MebedoWorld.createReport<Land, never>('laender-all', {
     title: 'Alle Länder',
     description: 'Zeigt alle Länder dieser Welt.',
@@ -252,12 +258,8 @@ export const ReportLaenderAll = MebedoWorld.createReport<Land, never>('laender-a
     liveDatasource: ({ isServer, publication, currentUser }) => {
         if (isServer && !currentUser) return publication?.ready();
         
-        let $Laender;
-        if (isServer)
-            $Laender = Laender
-        else
-            $Laender = getAppStore('laender');
-        return $Laender.find({}, { sort: { title: 1 } });
+        const appStore = isServer ? Laender : getAppStore('laender');
+        return appStore.find({}, { sort: { title: 1 } });
     },
 
     type: 'table',

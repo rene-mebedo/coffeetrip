@@ -1,4 +1,4 @@
-import { IMethodStatus, IRunScriptTools, TMoment, TReport } from "./world";
+import { IMethodStatus, IRunScriptTools, IWorldUser, TMoment, TReport } from "./world";
 import { EnumControltypes, EnumDocumentModes, EnumFieldTypes, EnumMethodResult } from "../consts";
 import { IGenericDocument } from "../lib/core";
 import { App } from "../lib/app";
@@ -168,6 +168,16 @@ export interface IAppLayoutElementDivider<T> extends IGenericAppLayoutElement<T>
     orientation?: 'left' | 'right' | 'center';
 }
 
+export interface IAppLayoutElementImage<T> extends IGenericAppLayoutElement<T> {
+    controlType: EnumControltypes.ctImage
+    /**
+     * optional CSS style properties to individual style
+     * the image tag
+     */
+    style?: React.CSSProperties
+}
+
+
 export interface IAppLayoutElementColumns<T> extends IGenericAppLayoutElement<T> {
     controlType: EnumControltypes.ctColumns;
     columns: Array<{
@@ -303,7 +313,8 @@ export type TAppLayoutElement<T> = IAppLayoutElementReport<T> |
                                 IAppLayoutElementWidgetSimple<T> |
                                 IAppLayoutElementAppLink<T> |
                                 IAppLayoutElementSlider<T> |
-                                IAppLayoutElementColumns<T>;
+                                IAppLayoutElementColumns<T> |
+                                IAppLayoutElementImage<T>;
 
 
 export interface IAppLayout<T> {
@@ -335,9 +346,11 @@ export interface IAppMethodsDefaultProps<T> {
 
 export interface IAppMethodResult {
     status: EnumMethodResult
-    errCode?: number
+    errCode?: string
     statusText?: string | null
 }
+
+export type TCurrentValueFunction<T> = (propName: keyof T) => any;
 
 export interface ITriggerTools<T> {
     /**
@@ -349,7 +362,7 @@ export interface ITriggerTools<T> {
       * Returns the current Value of the give Prop
       * inside the update-trigger
       */
-    currentValue: (propName: keyof T) => any 
+    currentValue: TCurrentValueFunction<T>
 }
 
 export interface IDefaultsTriggerExtras<T> extends ITriggerTools<T> {
@@ -385,6 +398,24 @@ export interface IAppMethods<T> {
     onAfterUpdate?: (id: string, values: UpdateableAppData<T>, oldValues: AppData<T>, triggerExtras: IUpdateTriggerExtras<T>) => Promise<IAppMethodResult>,
     onBeforeRemove?: (values: AppData<T>, triggerExtras: IRemoveTriggerExtras<T>) => Promise<IAppMethodResult>,
     onAfterRemove?: (values: AppData<T>, triggerExtras: IRemoveTriggerExtras<T>) => Promise<IAppMethodResult>,
+}
+
+export interface IAppRuleExecutionTools<T> extends ITriggerTools<T> {
+    session: any
+}
+
+//export type TAppRuleConditionProps<T> = { _id: string | null, NEW:AppData<T> | null, OLD:AppData<T> | null } & IAppRuleExecutionTools<T>
+export type TAppRuleProps<T> = { triggerTiming?: TTriggerTiming, _id: string | null, NEW:AppData<T> | null, OLD:AppData<T> | null } & IAppRuleExecutionTools<T>
+export type TTriggerTiming = 'beforeInsert' | 'afterInsert' | 'beforeUpdate' | 'afterUpdate' | 'beforeRemove' | 'afterRemove';
+export type TAppRuleCondition<T> = (props: TAppRuleProps<T>) => Promise<boolean>;
+export type TAppRuleExecution<T> = (props: TAppRuleProps<T>) => void
+export type TAppRule<T> = {
+    _id?: string
+    title: string
+    description: string
+    on: TTriggerTiming | Array<TTriggerTiming>
+    when: true | TAppRuleCondition<T>
+    then: TAppRuleExecution<T>
 }
 
 export type TEnvironment = 'ReportPage' | 'Dashboard' | 'Document'
@@ -512,9 +543,27 @@ export type DefaultAppData<T> = { [key in keyof T]?: T[key] } & {
     _rev?: number
 };
 
+export type TSharedWithItem = {
+    user: {
+        userId: string,
+        firstName: string,
+        lastName: string
+    }
+    role?: string
+}
+export type TSharedWith = Array<TSharedWithItem>;
+
 export type AppData<T> = { [key in keyof T]: T[key] } & {
      _id: string
      _rev: number
+
+     sharedWith: TSharedWith
+     /**
+      * Rollen, mit denen das Dokument geteilt ist
+      * Das teilen mit Rollen ist eine "Abkürzung" für das sharedWith
+      * mit dem Vorteil nicht alle Benutzer einzeln aufzuzeigen
+      */
+     sharedWithRoles?: Array<string>
 };
 
 export interface IGenericApp {
@@ -528,6 +577,13 @@ export type TAppFields<T> = {
 
 export type TAppActions<T> =  {
     [key: string]: IAppAction<T>
+}
+
+export type TLayoutFilterProps<T> = {
+    document: AppData<T>,
+    defaults: DefaultAppData<T>,
+    mode:EnumDocumentModes,
+    currentUser:IWorldUser,
 }
 
 export interface IApp<T> {
@@ -560,6 +616,12 @@ export interface IApp<T> {
     },
 
     fields: TAppFields<T>,
+
+    /**
+     * Returns the name of the layout which should be rendered
+     * for the current user
+     */
+    layoutFilter?: string | ((props: TLayoutFilterProps<T>) => string)
 
     layouts: {
         [key: string]: IAppLayout<T>
@@ -626,3 +688,4 @@ export interface IGenericDefaultResult extends IMethodStatus {
 export interface ILockResult extends IMethodStatus {
     lockId?: string
 }
+

@@ -43,7 +43,8 @@ export enum EnumControltypes {
     ctReport = 'Report',
     ctColumns = 'Columns',
     ctGoogleMap = 'GoogleMap',
-    ctWidgetSimple = 'WidgetSimple'
+    ctWidgetSimple = 'WidgetSimple',
+    ctImage = 'Image',
 }
 
 export enum EnumDocumentModes {

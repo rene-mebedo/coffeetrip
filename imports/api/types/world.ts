@@ -24,6 +24,7 @@ export interface ISharedWith {
 
 export interface IMethodStatus {
     status: EnumMethodResult,
+    errCode?: string,
     statusText?: string | null,
 }
 

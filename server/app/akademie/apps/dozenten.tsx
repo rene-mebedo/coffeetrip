@@ -1,5 +1,5 @@
 
-import { EnumControltypes, EnumFieldTypes } from "/imports/api/consts";
+import { EnumControltypes, EnumFieldTypes, EnumMethodResult } from "/imports/api/consts";
 
 import { IGenericApp } from "/imports/api/types/app-types";
 import { MebedoWorld } from "../../mebedo-world";
@@ -70,12 +70,21 @@ export const Dozenten = Akademie.createApp<Dozent>('dozenten', {
         },
     },
 
+    layoutFilter: props => {
+        const { currentUser } = props;
+        
+        // Alle externen Benutzer bekommen das externe Layout
+        if (currentUser.userData.roles.find( role => role == 'EXTERN' ))
+            return 'extern'
+        
+        return 'default';
+    },
     layouts: {
         default: {
             title: 'Standard-layout',
             description: 'dies ist ein universallayout für alle Operationen',
 
-            visibleBy: ['EVERYBODY'],
+            visibleBy: ['ADMIN', 'EMPLOYEE'],
             
             elements: [
                 { field: 'title', controlType: EnumControltypes.ctStringInput },
@@ -87,6 +96,28 @@ export const Dozenten = Akademie.createApp<Dozent>('dozenten', {
                 { field: 'fachgebiete', controlType: EnumControltypes.ctTextInput },
             ]
         },
+
+        extern: {
+            title: 'Standard-layout für Kunden',
+            description: 'dies ist ein Anzeige-Layout für Kunden',
+
+            visibleBy: ['EVERYBODY'],
+            
+            elements: [
+                { controlType: EnumControltypes.ctColumns, columns: [
+                    { columnDetails:{ xs:24, sm:24, md:24, lg:6  }, elements: [
+                        { field: 'imageUrl', controlType: EnumControltypes.ctImage }
+                    ]},
+                    { columnDetails:{ xs:24, sm:24, md:24, lg:18  }, elements: [
+                        { field: 'title', noTitle:true, controlType: EnumControltypes.ctStringInput },
+                        { field: 'position', noTitle:true, controlType: EnumControltypes.ctStringInput },
+                        { field: 'unternehmen', noTitle:true, controlType: EnumControltypes.ctStringInput },
+                        { field: 'fachgebiete', noTitle:true, controlType: EnumControltypes.ctTextInput },
+                    ]}
+                ]},
+            ]
+        }
+
     },
 
     actions: {
@@ -95,7 +126,13 @@ export const Dozenten = Akademie.createApp<Dozent>('dozenten', {
     },
 
     methods: {
+        onBeforeInsert: async function(NEW) {
+            // Ein neuer Dozent sollte mit "Jedem" im System geteilt sein,
+            // da dieser auch öffentlich auf der Homepage steht
+            NEW.sharedWithRoles = ['EVERYBODY'];
 
+            return { status: EnumMethodResult.STATUS_OKAY }
+        }
     },
 
     dashboardPicker: () => 'default',

@@ -20,6 +20,7 @@ import { IMethodOnValuesChange } from './layout-controls/generic-control-wrapper
 import { IGenericDocument } from '/imports/api/lib/core';
 import { IWorldUser } from '/imports/api/types/world';
 import { SliderInput } from './layout-controls/slider';
+import { ImageViewer } from './layout-controls/image';
 
 export const getLabel = (elem: TAppLayoutElement<any>, fields: TAppFields<any>): string => {
     if (elem.noTitle) return '';
@@ -66,7 +67,8 @@ export const LayoutElements = (props:IAppLayoutElementProps): JSX.Element => {
 
                 if (elem.controlType === EnumControltypes.ctSingleModuleOption ) return <SingleModuleOption {...props} key={key} elem={elem} />
                 if (elem.controlType === EnumControltypes.ctAppLink ) return <AppLinkInput {...props} key={key} elem={elem} />
-
+                if (elem.controlType === EnumControltypes.ctImage ) return <ImageViewer {...props} key={key} elem={elem} />
+                
                 if (elem.controlType === EnumControltypes.ctReport ) return <ReportControl {...props} key={key} elem={elem} environment='Document' reportId={(elem as IAppLayoutElementReport<any>).reportId} title={elem.title} />
                 if (elem.controlType === EnumControltypes.ctColumns ) return <Columns {...props} key={key} elem={elem} />
                 if (elem.controlType === EnumControltypes.ctGoogleMap ) return <GoogleMap {...props} key={key} elem={elem} />
@@ -88,12 +90,20 @@ export interface IAppLayoutProps {
 }
 
 export const AppLayout = ({ app, defaults, document, /*layoutName = 'default',*/ mode, onValuesChange, currentUser }:IAppLayoutProps) => {
+    /**
+     * The Defaultlayout is always "default"
+     */
     let layoutName = 'default';
-    //console.log('AppLayout', currentUser)
-    if (currentUser._id == 'f57sj45PPXjpPpEk6') layoutName = 'extern';
 
-    // TODO: Unterstützung anderer Layouttypen
-    // aktuell wird nur das default-layout unterstützt
+    if (app.layoutFilter) {
+        try {
+            const layoutFilterFn = eval(app.layoutFilter as string);
+            layoutName = layoutFilterFn({document, defaults, mode, currentUser});
+        } catch(err) {
+            console.error("Es ist ein Fehler beim evaluieren des Layoutnames aufgetreten.");
+            console.log(err);
+        }
+    }
     const layout = app.layouts && (app.layouts[layoutName] || app.layouts.default);
     
     return (

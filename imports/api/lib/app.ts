@@ -30,7 +30,7 @@ import {
     IDefaultAppData, IGenericAppLinkOptionsResult, IGenericDefaultResult, IGenericInsertResult, 
     IGenericRemoveResult, IGenericUpdateResult, IGetAppLinkOptionProps, IGetDocumentResult, 
     IGetUsersSharedWithResult, ILockResult, InsertableAppData, IPostProps, 
-    TAppLink, UpdateableAppData 
+    TAppLink, TAppRule, TAppRuleProps, TTriggerTiming, UpdateableAppData 
 } from "/imports/api/types/app-types";
 
 import { injectUserData } from "./roles";
@@ -38,6 +38,7 @@ import { Activities } from "./activities";
 import SimpleSchema from "simpl-schema";
 import { createAppStore, IGenericDocument } from "./core";
 import { Report } from "./report";
+import { AppRuleError } from "./error";
 
 interface IAppCache {
     [key:string]: any //IApp<T>
@@ -57,6 +58,8 @@ interface IChanges {
     message: string;
     changes: TAppDataChanges
 }
+
+
 
 const messageWithMentions = ({currentUser: _foo, msg, refs: __foo1}:any) => {
     let { text, mentions } = msg;
@@ -103,6 +106,7 @@ export class App<T> {
 
     private collection: Mongo.Collection<any>;
     public app: IApp<T>;
+    private appRules: Array<TAppRule<T>> = [];
 
     constructor(world: World, product: Product, appDef: IApp<T>) {
         this.world = world;
@@ -205,6 +209,7 @@ export class App<T> {
             });
         }
 
+        if (_appDef.layoutFilter && isFunction(_appDef.layoutFilter)) _appDef.layoutFilter = _appDef.layoutFilter.toString();
         if (_appDef.layouts) {
             let layouts = Object.keys(_appDef.layouts);
             layouts.forEach( layoutName => {
@@ -827,6 +832,49 @@ export class App<T> {
     }
 
     /**
+     * Hinzufügen einer neuen App-Regel zur Steuerung der Prozesse
+     * 
+     * @param ruleId Eindeutiger Name der Rule
+     * @param rule Dfinition der Regel
+     */
+    public addRule(ruleId: string, rule: TAppRule<T>): void {
+        rule._id = ruleId;
+        this.appRules.push(rule);
+    }
+
+    /**
+     * Executes the defined rules
+     * 
+     * @param triggerTiming 
+     * @param ruleProps 
+     * @returns 
+     */
+    private async runRules(triggerTiming: TTriggerTiming, ruleProps: TAppRuleProps<T>): Promise<IMethodStatus> {
+        ruleProps.triggerTiming = triggerTiming;
+        
+        try {
+            let i=0, max=this.appRules.length
+            for(i=0;i<max;i++) {
+                const rule = this.appRules[i];
+
+                if (rule.on === triggerTiming || (isArray(rule.on) && (rule.on as Array<TTriggerTiming>).find( on => on == triggerTiming))) {
+                    if (rule.when === true || await rule.when(ruleProps)) {
+                        await rule.then(ruleProps);
+                    }
+                }
+            };
+        } catch (err) {
+            if (err instanceof AppRuleError) {
+                return { status: EnumMethodResult.STATUS_ABORT, errCode: err.name, statusText: err.message }
+            } else {
+                return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: err.message }
+            }
+        }
+
+        return { status: EnumMethodResult.STATUS_OKAY }
+    }
+
+    /**
      * Returns the current logged in user
      * for this app
      * 
@@ -972,6 +1020,21 @@ export class App<T> {
             }
         }
 
+        // run appRules
+        let ruleResult = await this.runRules('beforeInsert', {
+            _id: null,
+            NEW: values, 
+            OLD: null,
+            session: options?.session, 
+            hasChanged: this.hasChanged(values, null), 
+            currentValue: this.currentValue(values, null)
+        });
+
+        if  ( ruleResult.status != EnumMethodResult.STATUS_OKAY ) {
+            return ruleResult; 
+        }
+        
+
         if (this.app.methods && this.app.methods.onBeforeInsert) {
             let result;
 
@@ -1011,6 +1074,19 @@ export class App<T> {
             );
         } catch(err) {
             return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: 'Fehler beim insert der Daten oder Activity\n' + err.message };
+        }
+
+        ruleResult = await this.runRules('afterInsert', {
+            _id: docId,
+            NEW: values, 
+            OLD: null,
+            session: options?.session, 
+            hasChanged: this.hasChanged(values, null), 
+            currentValue: this.currentValue(values, null)
+        });
+
+        if  ( ruleResult.status != EnumMethodResult.STATUS_OKAY ) {
+            return ruleResult; 
         }
 
         if (this.app.methods && this.app.methods.onAfterInsert) {
@@ -1115,6 +1191,19 @@ export class App<T> {
             return { status: EnumMethodResult.STATUS_NOT_FOUND, statusText: 'Der Datensatz exisitiert nicht oder wurde nicht mit Ihnen geteilt.' }
         }
 
+        let ruleResult = await this.runRules('beforeUpdate', {
+            _id: docId,
+            NEW: values as AppData<T>, 
+            OLD: oldValues,
+            session: options?.session, 
+            hasChanged: this.hasChanged(values, oldValues), 
+            currentValue: this.currentValue(values, oldValues)
+        });
+
+        if  ( ruleResult.status != EnumMethodResult.STATUS_OKAY ) {
+            return ruleResult; 
+        }
+
 
         if (this.app.methods && this.app.methods.onBeforeUpdate) {
             let result: IGenericUpdateResult;
@@ -1166,6 +1255,19 @@ export class App<T> {
             , { session: options?.session } );
         } catch(err) {
             return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: 'Fehler beim insert der Daten oder Activity\n' + err.message };
+        }
+
+        ruleResult = await this.runRules('afterUpdate', {
+            _id: docId,
+            NEW: values as AppData<T>, 
+            OLD: oldValues,
+            session: options?.session, 
+            hasChanged: this.hasChanged(values, oldValues), 
+            currentValue: this.currentValue(values, oldValues)
+        });
+
+        if  ( ruleResult.status != EnumMethodResult.STATUS_OKAY ) {
+            return ruleResult; 
         }
 
         if (this.app.methods && this.app.methods.onAfterUpdate) {
@@ -1240,7 +1342,7 @@ export class App<T> {
      * Remove a document for this app
     */
     protected async _remove(docId: string, currentUser: IWorldUser, options?:any): Promise<IGenericRemoveResult> {
-        const oldValues = <AppData<T>> await this.collection.rawCollection().findOne({
+        let query: any = {
             $and: [
                 { _id: docId },
                 {
@@ -1250,7 +1352,12 @@ export class App<T> {
                     ]
                 }
             ]
-        }, options);
+        };
+
+        if (options && options.skipPermissions) {
+            query = { _id: docId }
+        }
+        const oldValues = <AppData<T>> await this.collection.rawCollection().findOne(query, options);
 
         /*
             prüfen, ob ein Record zurückgeliefert wurde. Falls dem nicht so ist, hat dies
@@ -1263,6 +1370,19 @@ export class App<T> {
             return { status: EnumMethodResult.STATUS_NOT_FOUND, statusText: 'Der Datensatz kann nicht gelöscht werden, da diser nicht exisitiert oder nicht mit Ihnen geteilt wurde.' }
         }
 
+        let ruleResult = await this.runRules('beforeRemove', {
+            _id: docId,
+            NEW: null,
+            OLD: oldValues,
+            session: options?.session, 
+            hasChanged: this.hasChanged(null, oldValues), 
+            currentValue: this.currentValue(null, oldValues)
+        });
+
+        if  ( ruleResult.status != EnumMethodResult.STATUS_OKAY ) {
+            return ruleResult; 
+        }
+        
 
         if (this.app.methods && this.app.methods.onBeforeRemove) {
             let result;
@@ -1308,6 +1428,20 @@ export class App<T> {
             , { session: options?.session } );
         } catch(err) {
             return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: 'Fehler beim Löschen der Daten oder protokollieren der Activity\n' + err.message };
+        }
+
+        ruleResult = await this.runRules('afterRemove', {
+            triggerTiming: 'afterRemove',
+            _id: docId,
+            NEW: null,
+            OLD: oldValues,
+            session: options?.session, 
+            hasChanged: this.hasChanged(null, oldValues), 
+            currentValue: this.currentValue(null, oldValues)
+        });
+
+        if  ( ruleResult.status != EnumMethodResult.STATUS_OKAY ) {
+            return ruleResult; 
         }
 
         if (this.app.methods && this.app.methods.onAfterRemove) {

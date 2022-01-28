@@ -50,16 +50,37 @@ export interface IClientCollectionResult extends IMethodStatus {
     appIds?: Array<string/*|undefined*/> | null
 }
 
+export interface ILoginDefiniton {
+    imageUrl: string,
+    welcome?: string,
+    introduction?: string,
+
+    with: {
+        password?: boolean
+        google?: boolean
+        facebook?: boolean
+    }
+    register: boolean | string
+    forgotPassword: boolean | string
+}
+
+export interface IRegisterData {
+    initialRoles: Array<string>
+}
+
 export interface IWorld {
     title: string,
     description: string,
-    logoUrl: string
+    imageUrl: string,
+    login: ILoginDefiniton
+    register?: IRegisterData
 }
 
 export interface IUserData {
     roles: Array<string>,
     firstName: string,
-    lastName: string
+    lastName: string,
+    accountVerified:boolean
 }
 
 export interface IWorldUser extends Meteor.User {

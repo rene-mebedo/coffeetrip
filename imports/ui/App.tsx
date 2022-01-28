@@ -11,6 +11,7 @@ import { getAppStore } from '../api/lib/core';
 import { IClientCollectionResult } from '../api/types/world';
 import { EnumMethodResult } from '../api/consts';
 import { NotFoundPage } from './pages/not-found';
+import { NotVerifiedPage } from './pages/not-verified';
 
 
 export interface IAppProps {
@@ -21,7 +22,7 @@ export interface IAppProps {
 }
 
 export const App:React.FC<IAppProps> = ({ content, routeStatus, authenticatedRoute = true, ...props }) => {
-    const { currentUser, isLoggedIn, accountsReady } = useAccount();
+    const { currentUser, isLoggedIn, accountVerified, accountsReady } = useAccount();
     //const { roles, rolesLoading } = useRoles();
 
     useEffect(() => {
@@ -53,11 +54,13 @@ export const App:React.FC<IAppProps> = ({ content, routeStatus, authenticatedRou
     }, []);
 
     if (!accountsReady) {
-        return <Spin size="large" />
+        return <div className="mbac-loading-spinner">
+            <Spin size="large"/>
+        </div>
     }
 
     if (!authenticatedRoute) {
-        //return React.createElement(content, { ...props });
+        return React.createElement(content, { ...props as any });
     }
 
     if (routeStatus == '404') {
@@ -68,6 +71,10 @@ export const App:React.FC<IAppProps> = ({ content, routeStatus, authenticatedRou
         return <LoginPage />;
     }
     
+    if (!accountVerified) {
+        return <NotVerifiedPage />;
+    }
+
     const contentProps: unknown = { currentUser, ...props };
 
     return (

@@ -19,7 +19,7 @@ import CloseOutlined from '@ant-design/icons/CloseOutlined';
 
 const { Option } = Select;
 
-import { IAppField, IAppLayoutElementAppLink, IAppLink, IGenericAppLinkOptionsResult } from '/imports/api/types/app-types';
+import { IApp, IAppField, IAppLayoutElementAppLink, IAppLink, IGenericAppLinkOptionsResult } from '/imports/api/types/app-types';
 import { GenericControlWrapper, IGenericControlProps } from './generic-control-wrapper';
 
 export interface IAppLinkControlProps {
@@ -47,10 +47,10 @@ export interface IAppLinkControlState {
     options: Array<IGenericDocument> | undefined
 }
 
-class GenericAppLinkInput extends React.Component<IAppLinkControlProps, IAppLinkControlState> {
+export class GenericAppLinkInput extends React.Component<IAppLinkControlProps, IAppLinkControlState> {
     private onSearch: () => void;
 
-    constructor(props: IAppLinkControlProps){
+    constructor(props: IAppLinkControlProps) {
         super (props);
 
         const { appId, targetAppId, fieldId } = props;
@@ -188,9 +188,9 @@ class GenericAppLinkInput extends React.Component<IAppLinkControlProps, IAppLink
  */
 export const SingleModuleOption = (props: IGenericControlProps) => {
     const { elem, app, mode } = props;
-    const { _id: appId, fields } = app;
+    const { _id: appId, fields } = app as IApp<any>;
     
-    const fieldDefinition: IAppField<any> = fields[elem.field as string];
+    const fieldDefinition: IAppField<any> = fields[elem?.field as string];
     const appLink: IAppLink<any> = fieldDefinition.appLink as IAppLink<any>;
 
     const targetAppId: string = appLink.app as unknown as string;
@@ -199,7 +199,7 @@ export const SingleModuleOption = (props: IGenericControlProps) => {
         <GenericControlWrapper {...props} className="mbac-input mbac-app-link">
             <GenericAppLinkInput
                 appId={appId as string}
-                fieldId={elem.field as string}
+                fieldId={elem?.field as string}
 
                 targetAppId={targetAppId}
 
@@ -218,9 +218,9 @@ export const SingleModuleOption = (props: IGenericControlProps) => {
 export const AppLinkInput = (props: IGenericControlProps) => {
     const elem = props.elem as IAppLayoutElementAppLink<any>;
     const { app, mode } = props;
-    const { _id: appId, fields } = app;
+    const { _id: appId, fields } = app as IApp<any>;
     
-    const fieldDefinition: IAppField<any> = fields[elem.field as string];
+    const fieldDefinition: IAppField<any> = fields[elem.field as string]; 
     const appLink: IAppLink<any> = fieldDefinition.appLink as IAppLink<any>;
 
     const targetAppId: string = appLink.app as unknown as string;

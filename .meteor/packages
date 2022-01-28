@@ -26,3 +26,6 @@ less
 jquery
 ostrio:files
 meteortesting:mocha
+accounts-google
+service-configuration
+accounts-facebook

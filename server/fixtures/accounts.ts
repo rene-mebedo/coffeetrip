@@ -1,5 +1,7 @@
 import { Meteor } from 'meteor/meteor';
 import { Accounts } from 'meteor/accounts-base';
+import { Mongo } from 'meteor/mongo';
+import { any } from 'prop-types';
 
 // Setup Admin user if not exists
 const USERNAME = 'admin';
@@ -63,4 +65,3 @@ if (newUser){
         }
     });
 }
-

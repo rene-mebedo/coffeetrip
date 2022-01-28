@@ -21,7 +21,17 @@ import moment from 'moment';
     let currentUser = null;
 
     if (subscription.ready()) {
-        currentUser = Meteor.users.findOne({_id:<string>userId}, { fields: { username: 1, userData: 1 }});
+        currentUser = Meteor.users.findOne({_id:<string>userId}, { fields: { username: 1, services:1, emails:1, userData: 1 }}) as IWorldUser;
+    }
+    //console.log(currentUser);
+    //console.log('Filter', currentUser?.emails?.filter( ({ verified }) => verified === false ));
+    let isNotVerified = true;
+    if (currentUser?.services.password){
+        if (currentUser?.emails?.filter( ({ verified }) => verified === false ).length === 0) {
+            isNotVerified = false
+        }
+    } else if (currentUser?.services?.google) {
+        isNotVerified = !currentUser?.services.google.verified_email
     }
 
     return {
@@ -29,21 +39,51 @@ import moment from 'moment';
         userId,
         currentUser,
         isLoggedIn: !!userId,
+        accountVerified: (isNotVerified === false),
         accountsReady: user !== undefined && subscription.ready()
     }
-}, [])
+}, []);
 
-import { IProductresult, IProductsresult } from '/imports/api/types/world';
+import { IProductresult, IProductsresult, IWorldUser } from '/imports/api/types/world';
 import { isArray, isDate } from '/imports/api/lib/basics';
 import { Avatars } from '/imports/api/lib/avatars';
-import { IDocumentLock } from '/imports/api/lib/world';
+import { IDocumentLock, ILoginDefinitonResult } from '/imports/api/lib/world';
+
+
+/**
+ * Loads the Definition for the Login-Page
+ * 
+ */
+ export const useLoginDefinition = () => {
+    const [ loginDefinition, setLoginDefinition ] = useState<ILoginDefinitonResult>({
+        status: EnumMethodResult.STATUS_LOADING,
+        statusText: null,
+        loginDefinition: undefined
+    });
+
+    useEffect(() => {
+        Meteor.call('__worldData.getLoginDefinition', (err: Meteor.Error, result: ILoginDefinitonResult) => {
+            if (err) {
+                setLoginDefinition({
+                    status: EnumMethodResult.STATUS_SERVER_EXCEPTION,
+                    statusText: 'Ein unerwarteter Fehler ist aufgetreten.\n' + err.error + ' ' + err.message,
+                    loginDefinition: undefined,
+                });
+            } else {
+                setLoginDefinition(result)
+            }
+        });
+    }, []);
+
+    return loginDefinition;
+};
 
 /**
  * Load the Products that are shared with the current user
  * 
  * @param {String} userId   Specifies the user
  */
- export const useProducts = () => {
+export const useProducts = () => {
     const [ productData, setProductData ] = useState<IProductsresult>({
         products: null, 
         status: EnumMethodResult.STATUS_LOADING, 

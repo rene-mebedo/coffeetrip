@@ -3,10 +3,10 @@ import { Mongo } from 'meteor/mongo';
 
 import { EnumMethodResult } from '/imports/api/consts';
 import { Product } from './product';
-import { IApp, IAppMethodResult, IAppresult, IAppsresult, IGetReportResult } from '/imports/api/types/app-types';
+import { IApp, IAppMethodResult, IAppresult, IAppsresult, IGetReportResult, TAppLink } from '/imports/api/types/app-types';
 import { MethodInvocationFunction } from './types';
 
-import { IWorld, IWorldUser, IProduct, IProductresult, IProductsresult, IClientCollectionResult, TReport } from '/imports/api/types/world';
+import { IWorld, IWorldUser, IProduct, IProductresult, IProductsresult, IClientCollectionResult, TReport, ILoginDefiniton, IMethodStatus } from '/imports/api/types/world';
 import { ProductSchema, AppSchema, ReportSchema, LockSchema } from './schemas';
 import { Report } from './report';
 import { check } from 'meteor/check';
@@ -15,6 +15,8 @@ import { Avatars } from './avatars';
 //import { MongoInternals, InsertOneWriteOpResult, UpdateWriteOpResult, WriteOpResult } from 'meteor/mongo';
 import * as SuperMongo from "meteor/mongo";
 import { userHasOneOrMoreRequiredRole } from './security';
+import SimpleSchema from 'simpl-schema';
+import { Accounts } from 'meteor/accounts-base';
 const { MongoInternals } = SuperMongo as unknown as any;
 
 export interface InsertOneWriteOpResult {
@@ -42,6 +44,29 @@ export interface IDocumentLock {
     lockedAt: Date
 }
 
+export interface ILoginDefinitonResult extends IMethodStatus {
+    loginDefinition?: ILoginDefiniton
+}
+
+export interface IRegisterUserData {
+    email: string
+    password: string
+    password1?: string
+    gender: string
+    firstName: string
+    lastName: string
+    company: string
+    street: string
+    postalcode: string
+    city: string
+    countryCode: string
+    agbs: boolean
+}
+
+export interface IRegisterResult extends IMethodStatus {
+    userId?: string
+}
+
 export class World {
     public worldCollection: Mongo.Collection<IWorld>;
     public productCollection: Mongo.Collection<IProduct>;
@@ -50,10 +75,10 @@ export class World {
 
     public locksCollection: Mongo.Collection<IDocumentLock>;
 
-    private worldId: string;
+    private worldId: string = '';
+    private worldDef: IWorld | null = null;
 
-    constructor() {
-        this.worldId = '';
+    constructor(worldDef: IWorld) {
 
         this.worldCollection = new Mongo.Collection('__worldData');
         this.productCollection = new Mongo.Collection('__productData');
@@ -88,6 +113,8 @@ export class World {
             });
         });
 
+        this.createWorld(worldDef);
+
         this.registerWorldMethods();
 
         Meteor.publish('__avatar', function publishAvatar(this:Subscription, userId: string) {
@@ -112,8 +139,10 @@ export class World {
         });
     }
 
-    createWorld( worldDef: IWorld ):string{
+    private createWorld( worldDef: IWorld ):string{
+        this.worldDef = worldDef;
         this.worldId = this.worldCollection.insert(worldDef);
+
         return this.worldId;
     }
 
@@ -135,14 +164,103 @@ export class World {
         this.getProduct();
         
         Meteor.methods({
+            '__world.registerUser': this.registerUser(),
+            '__worldData.getLoginDefinition': this.getLoginDefinition(),
             '__productData.getProduct': this.getProduct(),
             '__productData.getProducts': this.getProducts(),
             '__appData.getApp': this.getApp(),
             '__appData.getApps': this.getApps(),
             '__appData.getAppsByProduct': this.getAppsByProduct(),
             '__appData.clientCollectionInit': this.clientCollectionInit(),
-            '__reportData.getReport': this.getReport()
+            '__reportData.getReport': this.getReport(),
         });
+    }
+
+    /**
+     * Register a new User for the system
+     * 
+     * @param productId Id of the requested product
+     * @returns Metadata of product
+     */
+     private registerUser():MethodInvocationFunction {
+        const self = this;
+        const UserSchema = new SimpleSchema({
+            email: { type: String },
+            password: { type: String },
+            gender: { type: String },
+            firstName: { type: String },
+            lastName: { type: String },
+            company: { type: String },
+            street: { type: String },
+            postalcode: { type: String },
+            city: { type: String },
+            countryCode: { type: String },
+            agbChecked: { type: Boolean },
+            datenschutzChecked: { type: Boolean },
+        });
+        
+        return function(this:{userId:string}, data:IRegisterUserData):IRegisterResult  { 
+            console.log(JSON.stringify(data, null,4));
+            try {
+                UserSchema.validate(data);
+            } catch (err) {
+                return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: 'Die eingehenden Daten entsprechen nicht der Signatur für registerUser().' }
+            }
+
+            if (Accounts.findUserByEmail(data.email)){
+                return { 
+                    status: EnumMethodResult.STATUS_ABORT, 
+                    statusText: 'Der Benutzer konnte nicht erstellt werden, da die E-Mailadresse bereits verwandt wird. Wenn Sie Ihr Passwort vergessen haben, so nutzen Sie die "Passwort vergessen" Option.' 
+                }
+            }
+
+            let userId;
+            try {
+                userId = Accounts.createUser({ email: data.email, password: data.password });
+            } catch(err) {
+                return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: 'Der geforderte Benutzer konnte nicht erstellt werden. ' + err.message }
+            }
+
+            let userProfile: Partial<IRegisterUserData> = { ...data };
+            delete userProfile.email;
+            delete userProfile.password;
+
+            try {
+                // after creating the new user we have to update the individual userData
+                Meteor.users.update({ _id: userId }, {
+                    $set: {
+                        userData: {
+                            roles: self.worldDef?.register?.initialRoles,
+                            ...userProfile,
+                            accountVerified: false
+                        }
+                    }
+                });
+            } catch(err) {
+                return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: 'Die Speicherung des Benutzerprofiles war nicht möglich. ' + err.message }
+            }
+
+            Accounts.sendVerificationEmail(userId, data.email);
+
+            return { status: EnumMethodResult.STATUS_OKAY, userId }
+        }
+    }
+
+    /**
+     * Get the meta data of the Login-Section
+     * 
+     * @param productId Id of the requested product
+     * @returns Metadata of product
+     */
+     private getLoginDefinition():MethodInvocationFunction {
+        const self = this;
+
+        return function(this:{userId:string}):ILoginDefinitonResult  {           
+            if (!self.worldDef) {
+                return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: 'Es ist eine Definition auf dem Server vorhanden.' }
+            }
+            return { status: EnumMethodResult.STATUS_OKAY, loginDefinition: self.worldDef.login }
+        }
     }
 
     /**

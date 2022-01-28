@@ -659,7 +659,7 @@ export class App<T> {
             
             Activities.insert(activity);
     
-            // tell the author of the post that someone has answered to his post, if the answer is not from himself
+            // TODO tell the author of the post that someone has answered to his post, if the answer is not from himself
             /*if ( this.userId != activity.createdBy.userId ) {
                 UserActivities.insert(
                     injectUserData({ currentUser }, {
@@ -743,7 +743,7 @@ export class App<T> {
                 }
             });
     
-            // tell the author of the post that someone has answered to his post, if the answer is not from himself
+            // TODO tell the author of the post that someone has answered to his post, if the answer is not from himself
             /*if ( this.userId != activity.createdBy.userId ) {
                 UserActivities.insert(
                     injectUserData({ currentUser }, {

@@ -76,13 +76,84 @@ body {
   }
 }
 
-#Login {
-    background-color: #fff;
-    padding: 16px;
-    top: 10vh;
-    border: 1px solid #ccc;
+.loading,
+.mbac-loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+.loading.done {
+    display: block;
+    justify-content: unset;
+    align-items: unset;
+    height: unset;
 }
 
+.mbac-login,
+.mbac-register {
+    .mbac-login-data,
+    .mbac-register-data {
+        top: 10vh;
+        padding: 16px;
+        background-color: #fff;
+        border: 1px solid #ccc;
+        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+
+        .mbac-welcome,
+        .mbac-introduction {
+            text-align: center;
+        }
+        
+        .mbac-login-image {
+            text-align: right;
+            border-bottom: 1px solid #f1f1f1;
+
+            > img {
+                margin-bottom: 16px;
+                height: 50px;
+                width: auto;
+            }
+        }
+
+        .mbac-loginwith-password {
+            text-align: center;
+            > * {
+                margin:8px;
+            }
+
+            .mbac-register::before {
+                content: "\A";
+                white-space: pre;
+            }
+        }
+
+        .mbac-alternate-loginservices {
+            text-align: center;
+            display: block;
+
+            .mbac-btn {
+                margin: 8px
+            }
+        }
+
+        .mbac-register-btn {
+            text-align: right;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #f1f1f1;
+
+            > button {
+                margin:8px
+            }
+        }
+
+        .mbac-register-steps {
+            margin-top: 32px;
+            margin-bottom: 64px;
+        }
+    }
+}
 
 .site-layout-background .trigger {
   font-size: 18px;

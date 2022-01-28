@@ -10,6 +10,8 @@ import { HomePage } from '../imports/ui/pages/home';
 import { AppDashboardPage } from '../imports/ui/pages/app-dashboard';
 import { Record } from '../imports/ui/pages/record';
 import { ReportPage } from '../imports/ui/pages/report-page';
+import { RegisterPage } from '/imports/ui/pages/register';
+import { VerifyAccount } from '/imports/ui/pages/verify-account';
 
 //import { InfoForm } from '../imports/ui/Info';
 
@@ -93,27 +95,48 @@ function preventRouteChange (targetContext) {
   }]);
 
 
-/*FlowRouter.route('/verify-email/:token', {
-    name: 'verifyMail',
+FlowRouter.route('/verify-account/:token', {
+    name: 'verifyAccount',
     action({ token }) {
         mount(App, {
-            content: VerifyEMail,
+            content: VerifyAccount,
             token,
             authenticatedRoute: false
         });
     },
 });
 
-FlowRouter.route('/profile', {
-    name: 'userprofile',
-    action() {
+FlowRouter.route('/reset-password/:token', {
+    name: 'resetPassword',
+    action({ token }) {
         mount(App, {
-            content: UserProfileForm,
-            authenticatedRoute: true
+            //content: ResetPassword,
+            token,
+            authenticatedRoute: false
         });
     },
 });
-*/
+
+FlowRouter.route('/forgotpassword', {
+    name: 'forgotpassword',
+    action() {
+        mount(App, {
+            //content: ForgotPassword,
+            authenticatedRoute: false
+        });
+    },
+});
+
+FlowRouter.route('/register', {
+    name: 'register',
+    action() {
+        mount(App, {
+            content: RegisterPage,
+            authenticatedRoute: false
+        });
+    },
+});
+
 FlowRouter.route('/', {
     name: 'root',
     action() {

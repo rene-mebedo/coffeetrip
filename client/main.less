@@ -137,7 +137,14 @@ body {
             }
         }
 
-        .mbac-register-btn {
+        .mbac-current-step-content {
+            .mbac-step-explanation {
+                margin-bottom: 16px !important;
+            }
+        }
+
+        .mbac-register-btn,
+        .mbac-forgot-password-btn {
             text-align: right;
             margin-top: 8px;
             padding-top: 8px;
@@ -148,10 +155,25 @@ body {
             }
         }
 
-        .mbac-register-steps {
-            margin-top: 32px;
-            margin-bottom: 64px;
+        .mbac-register-steps,
+        .mbac-forgot-password-steps {
+            padding: 16px; //32px 16px; 
+            margin-bottom: 16px;
         }
+
+        .mbac-registration-success-moreinfo {
+            h4 {
+                font-size: 24px;
+                font-weight: 600;
+            }
+
+            p {
+                font-size: 18px;
+                font-weight: 200;
+                color: #888;
+            }
+        }
+
     }
 }
 

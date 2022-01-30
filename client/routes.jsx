@@ -12,6 +12,7 @@ import { Record } from '../imports/ui/pages/record';
 import { ReportPage } from '../imports/ui/pages/report-page';
 import { RegisterPage } from '/imports/ui/pages/register';
 import { VerifyAccount } from '/imports/ui/pages/verify-account';
+import { ForgotPassword } from '/imports/ui/pages/forgot-password';
 
 //import { InfoForm } from '../imports/ui/Info';
 
@@ -117,11 +118,11 @@ FlowRouter.route('/reset-password/:token', {
     },
 });
 
-FlowRouter.route('/forgotpassword', {
+FlowRouter.route('/forgot-password', {
     name: 'forgotpassword',
     action() {
         mount(App, {
-            //content: ForgotPassword,
+            content: ForgotPassword,
             authenticatedRoute: false
         });
     },

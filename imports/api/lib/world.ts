@@ -165,6 +165,9 @@ export class World {
         
         Meteor.methods({
             '__world.registerUser': this.registerUser(),
+            '__world.sendVerificationEmail': this.sendVerificationEmail(),
+            '__world.sendForgotPasswordMail': this.sendForgotPasswordMail(),
+            '__world.checkResetPasswordToken': this.checkResetPasswordToken(),
             '__worldData.getLoginDefinition': this.getLoginDefinition(),
             '__productData.getProduct': this.getProduct(),
             '__productData.getProducts': this.getProducts(),
@@ -243,6 +246,83 @@ export class World {
             Accounts.sendVerificationEmail(userId, data.email);
 
             return { status: EnumMethodResult.STATUS_OKAY, userId }
+        }
+    }
+
+    /**
+     * sendVerificationEmail
+     * 
+     * @returns IMethodStatus
+     */
+     private sendVerificationEmail():MethodInvocationFunction {
+        return function(this:{userId:string}):IMethodStatus  {           
+            if (!this.userId) {
+                return { status: EnumMethodResult.STATUS_NOT_LOGGED_IN, statusText: 'Die E-Mail konnte nicht versandt werden, da keine Anmeldeinformationen vorliegen.' }
+            }
+            Accounts.sendVerificationEmail(this.userId);
+            
+            return { status: EnumMethodResult.STATUS_OKAY }
+        }
+    }
+
+    /**
+     * Sends an EMail to the users mail with a token to rest the passwort
+     * 
+     * @param email EMail addree of the target user
+     * @returns Methodstatus
+     */
+     private sendForgotPasswordMail():MethodInvocationFunction {
+        return function(this:{userId:string}, email:string): IMethodStatus  {
+            try {
+                check(email, String);
+            } catch(err) {
+                return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: 'Die Eingabe entspricht nicht der erwarteten Signatur für sendForgotPasswordMail().'};
+            }
+
+            if (this.userId) {
+                return { status: EnumMethodResult.STATUS_ABORT, statusText: 'Die E-Mail konnte nicht versandt werden, da noch eine angemeldete Sitzung existiert.' }
+            }
+            
+            const user = Accounts.findUserByEmail(email);
+            if (!user) {
+                return { status: EnumMethodResult.STATUS_ABORT, statusText: 'Die angegebene E-Mailadresse ist nicht bekannt.' }
+            }
+
+            try {
+                Accounts.sendResetPasswordEmail(user._id, email);
+            } catch(err) {
+                return { status: EnumMethodResult.STATUS_ABORT, statusText: err.message};
+            }
+
+            return { status: EnumMethodResult.STATUS_OKAY }
+        }
+    }
+    
+    /**
+     * Checks the given toke to be valid or not
+     * 
+     * @param token The token send by mail from method sendForgotPasswordMail
+     * @returns Methodstatus
+     */
+     private checkResetPasswordToken():MethodInvocationFunction {
+        return function(this:{userId:string}, token:string): IMethodStatus  {
+            try {
+                check(token, String);
+            } catch(err) {
+                return { status: EnumMethodResult.STATUS_SERVER_EXCEPTION, statusText: 'Die Eingabe entspricht nicht der erwarteten Signatur für checkResetPasswordToken().'};
+            }
+
+            if (this.userId) {
+                return { status: EnumMethodResult.STATUS_ABORT, statusText: 'Die E-Mail konnte nicht versandt werden, da noch eine angemeldete Sitzung existiert.' }
+            }
+            
+            const checkToken = Meteor.users.findOne({'services.password.reset.token' : token });
+
+            if (!checkToken) {
+                return { status: EnumMethodResult.STATUS_ABORT, statusText: 'Der angegebene Token ist nicht gültig. Bitte überprüfen Sie Ihre Eingabe.' }
+            }
+
+            return { status: EnumMethodResult.STATUS_OKAY }
         }
     }
 

@@ -13,6 +13,7 @@ import notification from 'antd/lib/notification';
 import Select from 'antd/lib/select';
 import Checkbox from 'antd/lib/checkbox';
 import Steps from 'antd/lib/steps';
+import Result from 'antd/lib/result';
 
 const { Step } = Steps;
 
@@ -20,11 +21,10 @@ import UserOutlined from '@ant-design/icons/UserOutlined';
 import LockOutlined from '@ant-design/icons/LockOutlined';
 
 import { EnumMethodResult } from '/imports/api/consts';
-import { useLoginDefinition } from '/client/clientdata';
+import { useAccount, useLoginDefinition } from '/client/clientdata';
 import { useState } from 'react';
 import { IRegisterResult, IRegisterUserData } from '/imports/api/lib/world';
 import { FlowRouter } from 'meteor/kadira:flow-router';
-import { Accounts } from 'meteor/accounts-base';
 
 
 const layout = {
@@ -36,15 +36,26 @@ const layout = {
     },
 };
 
+const WAIT_FOR_VERIFICATION = 4;
+
 export const RegisterPage = () => {
     const { status, loginDefinition } = useLoginDefinition();
+
     const [ disabledAll, setDisabledAll] = useState(false);
     const [ agbChecked, setAGBChecked] = useState(false);
     const [ datenschutzChecked, setDatenschutzChecked] = useState(false);
     const [ currentStep, setCurrentStep] = useState(0);
     const [ form ] = Form.useForm();
 
+    const { accountVerified } = useAccount();
+
     const [ formData, setFormData ] = useState({});
+    
+
+    if (currentStep == WAIT_FOR_VERIFICATION && accountVerified) {
+        FlowRouter.go('/');
+        return null;
+    }
 
     const registerAccount = (data: IRegisterUserData): void => {
         let userData = { ...formData, ...data };
@@ -69,21 +80,14 @@ export const RegisterPage = () => {
                 });
             }
 
-            notification.success({
-                message: 'Zugang erstellt',
-                description: 'Wir haben Ihnen eine E-Mail an die von Ihnen angegebene E-Mailadresse gesandt um diese zu verifizieren und bitten um Bestätigung Ihrers Zugangs.',
-                onClose: () => {
-                    Meteor.loginWithPassword({ email: userData.email }, userData.password, (error?: Error | Meteor.Error | Meteor.TypedError) => {
-                        if (error) {
-                            setDisabledAll(false);
+            setCurrentStep(WAIT_FOR_VERIFICATION);
+            Meteor.loginWithPassword({ email: userData.email }, userData.password, (error?: Error | Meteor.Error | Meteor.TypedError) => {
+                if (error) {
+                    setDisabledAll(false);
 
-                            notification.warning({
-                                message: 'Fehlerhafte Anmeldung',
-                                description: error.message
-                            });
-                        } else {
-                            FlowRouter.go('/');
-                        }
+                    notification.warning({
+                        message: 'Fehlerhafte Anmeldung',
+                        description: error.message
                     });
                 }
             });
@@ -280,8 +284,24 @@ export const RegisterPage = () => {
             >                        
                 <Checkbox onChange={changeAGBCheck} >Ich habe die <a href="https://mebedo-ac.de/agb" target="_blank">AGB</a> gelesen und stimme diesen zu</Checkbox>
             </Form.Item>
-        </Fragment>
+        </Fragment>,
 
+        <Fragment>
+            <Result
+                className="mbac-registration-success"
+                status="success"
+                title="Registrierung abgeschlossen"
+                subTitle="Ihr Zugang wurde erfolgreich erstellt."
+            >
+                <div className="mbac-registration-success-moreinfo">
+                    <h4>Wir warten auf Ihre Bestätigung!</h4>
+                    <p>
+                        Hierzu haben wir Ihnen eine E-Mail gesandt mit der Bitte Ihren Zugang und Ihre E-Mailadresse zu bestätigen.
+                        Bitte führen Sie zur Bestätigung den Link in dieser E-Mai aus. Sobald die Bestätigung durchgeführt ist werden Sie automatisch angemeldet und weitergeleitet.
+                    </p>
+                </div>
+            </Result>
+        </Fragment>
     ];
 
     return (
@@ -293,15 +313,20 @@ export const RegisterPage = () => {
                     </div>
                 }
                 
-                <h1 className="mbac-welcome">Registrierung</h1>                
-                <p className="mbac-introduction">Bitte geben Sie im nachfolgenden Ihre Benutzerdaten ein und bestätigen Sie Ihren Zugang.</p>
+                { currentStep >= WAIT_FOR_VERIFICATION ? null :
+                    <Fragment>
+                        <h1 className="mbac-welcome">Registrierung</h1>                
+                        <p className="mbac-introduction">Bitte geben Sie im nachfolgenden Ihre Benutzerdaten ein und bestätigen Sie Ihren Zugang.</p>
 
-                <Steps className="mbac-register-steps" current={currentStep} onChange={onStepChange}>
-                    <Step title="Login" description="E-Mail und Kennwort" />
-                    <Step title="Benutzer" description="persönlichen Daten" />
-                    <Step title="Unternehmen" description="Angaben zum Arbeitgeber" disabled={currentStep < 1 } />
-                    <Step title="Zustimmung" description="AGB's und Datenschutz" disabled={currentStep < 2 }/>
-                </Steps>
+                        <Steps className="mbac-register-steps" current={currentStep} onChange={onStepChange}>
+                            <Step title="Login" description="E-Mail und Kennwort" />
+                            <Step title="Benutzer" description="persönlichen Daten" />
+                            <Step title="Unternehmen" description="Angaben zum Arbeitgeber" disabled={currentStep < 1 } />
+                            <Step title="Zustimmung" description="AGB's und Datenschutz" disabled={currentStep < 2 }/>
+                            <Step title="Bestätigung" disabled={true}/>
+                        </Steps>
+                    </Fragment>
+                }
 
                 <Form
                     {...layout}
@@ -309,17 +334,19 @@ export const RegisterPage = () => {
                     name="registerForm"
                     onFinish={registerAccount}
                 >
-                    <div className="mbac-register-steps">
+                    <div className="mbac-current-step-content">
                         { stepContent[currentStep] }
                     </div>
 
-                    <div className="mbac-register-btn">
-                        <Button type="default" onClick={()=>history.back()} disabled={disabledAll}>Abbruch</Button>
-                        <Button type="default" onClick={()=>validateAndGo(currentStep-1)} disabled={disabledAll || currentStep==0}>Zurück</Button>
-                        <Button type="default" onClick={()=>validateAndGo(currentStep+1)} disabled={disabledAll || currentStep==3}>Weiter</Button>
-                        <Button type="primary" htmlType="submit" disabled={disabledAll || !agbChecked || !datenschutzChecked || currentStep < 3}>Jetzt Zugang erstellen</Button>
-                    </div>
-                </Form>        
+                    { currentStep >= WAIT_FOR_VERIFICATION ? null :
+                        <div className="mbac-register-btn">
+                            <Button type="default" onClick={()=>history.back()} disabled={disabledAll}>Abbruch</Button>
+                            <Button type="default" onClick={()=>validateAndGo(currentStep-1)} disabled={disabledAll || currentStep==0}>Zurück</Button>
+                            <Button type="default" onClick={()=>validateAndGo(currentStep+1)} disabled={disabledAll || currentStep==3}>Weiter</Button>
+                            <Button type="primary" htmlType="submit" disabled={disabledAll || !agbChecked || !datenschutzChecked || currentStep < 3}>Jetzt Zugang erstellen</Button>
+                        </div>
+                    }
+                </Form>
             </Col>
         </Row>
     );

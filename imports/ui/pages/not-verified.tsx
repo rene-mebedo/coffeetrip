@@ -5,12 +5,42 @@ import Result from 'antd/lib/result';
 import Typography from 'antd/lib/typography';
 import Space from 'antd/lib/space';
 import Spin from 'antd/lib/spin';
+import notification from 'antd/lib/notification';
 
 import CloseCircleOutlined from '@ant-design/icons/CloseCircleOutlined';
+import { useAccount } from '/client/clientdata';
+import { Meteor } from 'meteor/meteor';
+import { IMethodStatus } from '/imports/api/types/world';
+import { EnumMethodResult } from '/imports/api/consts';
 
 const {Text, Paragraph} = Typography;
 
 export const NotVerifiedPage = () => {
+    const { userId } = useAccount();
+
+    const resendVerificationEMail = () => {        
+        if (userId) {
+            Meteor.call('__world.sendVerificationEmail', (err: Error, res: IMethodStatus) => {
+                if (err) {
+                    return notification.error({
+                        message: 'Unerwarteter Fehler',
+                        description: err.message
+                    });
+                }
+                if (res.status != EnumMethodResult.STATUS_OKAY) {
+                    return notification.warning({
+                        message: 'Fehler',
+                        description: res.statusText
+                    });
+                }
+                notification.success({
+                    message: 'E-Mail versandt',
+                    description: 'Die E-Mail wurde erneut an die hinterlegte Mailadresse gesandt.'
+                });
+            })
+        }
+    }
+
     return (
         <Result
             className="mbac-verification-missing"
@@ -43,7 +73,7 @@ export const NotVerifiedPage = () => {
                         <Text strong>
                             Sie haben keine E-Mail erhalten? 
                         </Text>
-                        <Button type="default" onClick={ () => console.log('Test') }>E-Mail noch einmal zusenden.</Button>
+                        <Button type="default" onClick={resendVerificationEMail} disabled={userId === null}>E-Mail noch einmal zusenden.</Button>
                     </Space>
                 </Paragraph>
 

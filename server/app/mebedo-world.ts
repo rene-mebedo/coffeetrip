@@ -111,7 +111,7 @@ Accounts.emailTemplates.resetPassword = {
              </p>
          `;
     }
- };
+};
 
 Accounts.emailTemplates.verifyEmail = {
    subject() {
